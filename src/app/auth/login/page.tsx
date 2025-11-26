@@ -1,33 +1,46 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { LogIn, Phone, Building2, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuthRedux";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { isAuthenticated, isLoading, error, login, clearError } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
-  const [isLoading, setIsLoading] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+  // Navigate when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      setTimeout(() => router.push('/'), 100);
+    }
+  }, [isAuthenticated, router]);
 
-    // Simulate login
-    setTimeout(() => {
-      // Store login state
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("userEmail", formData.email);
-      
-      // Redirect to dashboard
-      router.push("/");
-      setIsLoading(false);
-    }, 1500);
-  };
+const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setLocalError(null);
+  clearError();
+
+  const success = await login(formData.email, formData.password);
+
+  if (!success) {
+    setLocalError(error || "Login failed. Please try again.");
+
+    setFormData(prev => ({
+      email: prev.email,  // keep same
+      password: ""        // clear only password
+    }));
+  }
+};
+
+
+  const displayError = localError || error;
 
   return (
     <div className="min-h-screen bg-linear-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center p-4">
@@ -48,7 +61,7 @@ export default function LoginPage() {
               <Building2 className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Real Estate CRM
+            Aloqa AI
             </h1>
             <p className="text-gray-600 flex items-center justify-center gap-2">
               <Phone className="w-4 h-4" />
@@ -58,6 +71,12 @@ export default function LoginPage() {
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
+            {displayError && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{displayError}</p>
+              </div>
+            )}
+            
             {/* Email Field */}
             <div className="space-y-2 animate-slideInLeft">
               <label className="block text-sm font-medium text-gray-700">
@@ -109,23 +128,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between text-sm">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                />
-                <span className="text-gray-600">Remember me</span>
-              </label>
-              <button
-                type="button"
-                className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
-              >
-                Forgot password?
-              </button>
-            </div>
-
             {/* Submit Button */}
             <button
               type="submit"
@@ -145,31 +147,11 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          {/* Divider */}
-          {/* <div className="relative my-6">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-200"></div>
-            </div>
-            <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-white text-gray-500">Or continue with</span>
-            </div>  X
-          </div> */}
-
-
-
-          {/* Sign Up Link
-          <p className="mt-6 text-center text-sm text-gray-600">
-            Don&apos;t have an account?{" "}
-            <button className="text-blue-600 hover:text-blue-700 font-semibold transition-colors">
-              Sign up
-            </button>
-          </p> */}
         </div>
 
         {/* Footer Text */}
         <p className="mt-6 text-center text-xs text-gray-500">
-          © 2025 Real Estate CRM. All rights reserved.
+          © 2025 Aloqa AI. All rights reserved.
         </p>
       </div>
     </div>

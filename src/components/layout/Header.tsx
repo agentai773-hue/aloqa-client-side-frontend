@@ -23,7 +23,7 @@ export default function Header() {
             <Phone className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Real Estate CRM</h1>
+            <h1 className="text-lg font-bold text-gray-900">Aloqa AI</h1>
             <p className="text-xs text-gray-500">Client Calling Portal</p>
           </div>
         </div>

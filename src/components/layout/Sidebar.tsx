@@ -47,7 +47,7 @@ export default function Sidebar() {
                 <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                   <Phone className="w-5 h-5" />
                 </div>
-                <h1 className="text-xl font-bold">Real Estate CRM</h1>
+                <h1 className="text-xl font-bold">Aloqa AI</h1>
               </div>
             )}
             {!isOpen && (

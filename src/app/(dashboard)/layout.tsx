@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Header, Sidebar } from "@/components/layout";
 
 export const metadata: Metadata = {
-  title: "Dashboard - Real Estate CRM",
+  title: "Dashboard - Aloqa AI",
   description: "Client calling dashboard",
 };
 
