@@ -1,5 +1,10 @@
-// Classic Redux Auth Actions (TypeScript)
 import { loginUser, verifyToken } from '@/api/auth';
+import { useRouter } from 'next/navigation';
+import { ThunkAction } from 'redux-thunk';
+import { AnyAction } from 'redux';
+import { RootState } from '../store';
+import Cookies from 'js-cookie';
+import axiosInstance from '@/utils/api';
 
 export const LOGIN_REQUEST = 'LOGIN_REQUEST' as const;
 export const LOGIN_SUCCESS = 'LOGIN_SUCCESS' as const;
@@ -97,8 +102,18 @@ export const performVerifyToken = () => async (dispatch: any) => {
   }
 };
 
-// Clear token on logout
-export const performLogout = () => (dispatch: any) => {
-  // Logout client-side state. If you want to clear server cookie, implement a backend logout route.
-  dispatch({ type: LOGOUT });
+// Clear token on logout 
+export const performLogout = (router: ReturnType<typeof useRouter>): ThunkAction<void, RootState, unknown, AnyAction> => async (dispatch) => {
+  try {
+    await axiosInstance.post('/client-auth/logout'); // Call backend to clear cookie
+    Cookies.remove('token'); // Clear token from client-side cookies
+    dispatch({ type: LOGOUT });
+    router.push('/auth/login'); // Redirect to login page
+  } catch (error) {
+    // Even if backend call fails, clear client-side data
+    Cookies.remove('token');
+    dispatch({ type: LOGOUT });
+    router.push('/auth/login');
+    console.error('Logout error:', error);
+  }
 };

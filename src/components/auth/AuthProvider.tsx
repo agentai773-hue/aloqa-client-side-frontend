@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Cookies from "js-cookie";
 import { useAuth } from "@/hooks/useAuthRedux";
 import { FullPageLoader } from "@/components/ui";
 
@@ -23,7 +24,8 @@ export default function AuthProvider({
     initRef.current = true;
 
     async function initAuth() {
-      const token = localStorage.getItem('token');
+      // Check for token in cookies (backend stores token in cookies)
+      const token = Cookies.get('token');
       if (token) {
         await verify();
       }

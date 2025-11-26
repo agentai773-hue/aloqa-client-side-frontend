@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import Cookies from 'js-cookie';
 import { RootState, AppDispatch } from '@/store/store';
 import { setUser, setLoading, setError, logout, clearError } from '@/store/slices/authSlice';
 import { loginUser, verifyToken } from '@/api/auth-api';
@@ -24,16 +25,16 @@ export function useAuth() {
         }
 
         // Save token to localStorage
-        localStorage.setItem('token', token);
+        // localStorage.setItem('token', token);
 
         dispatch(setUser({ token, user }));
+        dispatch(setLoading(false));
         return true;
       } catch (err: any) {
         const errorMessage = err.response?.data?.message || err.message || 'Login failed';
         dispatch(setError(errorMessage));
-        return false;
-      } finally {
         dispatch(setLoading(false));
+        return false;
       }
     },
     [dispatch]
@@ -43,7 +44,8 @@ export function useAuth() {
     try {
       dispatch(setLoading(true));
       const { token, user } = await verifyToken();
-      localStorage.setItem('token', token);
+      // Token is already stored in cookies by backend
+      // No need to manually set it
       dispatch(setUser({ token, user }));
       return true;
     } catch (err) {
@@ -55,7 +57,8 @@ export function useAuth() {
   }, [dispatch]);
 
   const logoutUser = useCallback(() => {
-    localStorage.removeItem('token');
+    // Remove token from cookies
+    Cookies.remove('token');
     dispatch(logout());
   }, [dispatch]);
 

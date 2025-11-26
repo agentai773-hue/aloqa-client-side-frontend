@@ -1,3 +1,5 @@
+"use client";
+
 import {
   LOGIN_REQUEST,
   LOGIN_SUCCESS,

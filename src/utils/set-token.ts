@@ -1,13 +1,11 @@
 "use server";
 
-import { cookies } from 'next/headers';
+import Cookies from 'js-cookie';
 
-export async function setAuthToken(token: string) {
-  const cookieStore = await cookies();
-  cookieStore.set('token', token, {
-    httpOnly: true,
+export function setAuthToken(token: string) {
+  Cookies.set('token', token, {
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'lax',
-    maxAge: 7 * 24 * 60 * 60,
+    expires: 7, // 7 days
   });
 }

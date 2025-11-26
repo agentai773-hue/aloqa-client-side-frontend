@@ -38,27 +38,27 @@ export interface ApiResponse<T> {
 
 // Check if lead exists
 export async function checkLeadExists(contactNumber: string): Promise<ApiResponse<Lead>> {
-  const response = await axiosInstance.get('/client-leads/check', {
+  const response = await axiosInstance.get('/leads/check', {
     params: { contact_number: contactNumber },
   });
   return response.data;
 }
-
+ 
 // Create lead
 export async function createLead(leadData: CreateLeadRequest): Promise<ApiResponse<Lead>> {
-  const response = await axiosInstance.post('/client-leads/create', leadData);
+  const response = await axiosInstance.post('/leads/create', leadData);
   return response.data;
 }
 
 // Get all leads for current user
 export async function getAllLeads(): Promise<ApiResponse<Lead[]>> {
-  const response = await axiosInstance.get('/client-leads/all');
+  const response = await axiosInstance.get('/leads/all');
   return response.data;
 }
 
 // Get single lead by ID
 export async function getLeadById(id: string): Promise<ApiResponse<Lead>> {
-  const response = await axiosInstance.get(`/client-leads/${id}`);
+  const response = await axiosInstance.get(`/leads/${id}`);
   return response.data;
 }
 
@@ -67,13 +67,13 @@ export async function updateLead(
   id: string,
   updateData: UpdateLeadRequest
 ): Promise<ApiResponse<Lead>> {
-  const response = await axiosInstance.put(`/client-leads/${id}`, updateData);
+  const response = await axiosInstance.put(`/leads/${id}`, updateData);
   return response.data;
 }
 
 // Delete lead
 export async function deleteLead(id: string): Promise<ApiResponse<Lead>> {
-  const response = await axiosInstance.delete(`/client-leads/${id}`);
+  const response = await axiosInstance.delete(`/leads/${id}`);
   return response.data;
 }
 
@@ -90,7 +90,7 @@ export async function importLeads(
     };
   }>
 > {
-  const response = await axiosInstance.post('/client-leads/import/csv', {
+  const response = await axiosInstance.post('/leads/import/csv', {
     leadsData,
   });
   return response.data;

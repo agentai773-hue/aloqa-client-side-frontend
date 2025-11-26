@@ -1,18 +1,26 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLeads, useDeleteLead, useCreateLead, useUpdateLead, useImportLeads } from '@/hooks/useLeads';
-import { Edit, Trash2, Phone, Plus } from 'lucide-react';
+import { useLeads, useDeleteLead, useCreateLead } from '@/hooks/useLeads';
+import { Edit, Trash2, Phone, Plus, Upload } from 'lucide-react';
+import Papa from 'papaparse';
+import { EditLeadModal } from '@/components/leads/EditLeadModal';
 
 export default function LeadsPage() {
   const router = useRouter();
   const { data: leads = [], isLoading: leadsLoading, error: leadsError } = useLeads();
   const deleteLeadMutation = useDeleteLead();
   const createLeadMutation = useCreateLead();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [activeTab, setActiveTab] = useState<'add' | 'import' | 'list'>('list');
   const [deleteError, setDeleteError] = useState<string>('');
   const [deleteSuccess, setDeleteSuccess] = useState<string>('');
+  const [importError, setImportError] = useState<string>('');
+  const [importSuccess, setImportSuccess] = useState<string>('');
+  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
+  const [editingLead, setEditingLead] = useState<any>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     contact_number: '',
@@ -58,6 +66,173 @@ export default function LeadsPage() {
     }
   };
 
+  const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setImportError('');
+    setImportSuccess('');
+
+    // Value mapping for enum fields - maps CSV values to valid backend enum values
+    const valueMapping: Record<string, Record<string, string>> = {
+      'lead_type': {
+        'high': 'hot',
+        'High': 'hot',
+        'medium': 'connected',
+        'Medium': 'connected',
+        'low': 'cold',
+        'Low': 'cold',
+        'hot': 'hot',
+        'Hot': 'hot',
+        'cold': 'cold',
+        'Cold': 'cold',
+        'pending': 'pending',
+        'Pending': 'pending',
+        'connected': 'connected',
+        'Connected': 'connected',
+        'fake': 'fake',
+        'Fake': 'fake',
+      },
+      'call_status': {
+        'new': 'pending',
+        'New': 'pending',
+        'pending': 'pending',
+        'Pending': 'pending',
+        'connected': 'connected',
+        'Connected': 'connected',
+        'not_connected': 'not_connected',
+        'Not Connected': 'not_connected',
+        'callback': 'callback',
+        'Callback': 'callback',
+        'hot': 'connected',
+        'Hot': 'connected',
+        'cold': 'not_connected',
+        'Cold': 'not_connected',
+      },
+    };
+
+    // Function to map CSV values to valid backend enum values
+    const mapValue = (field: string, value: string): string => {
+      const fieldMapping = valueMapping[field];
+      if (fieldMapping && fieldMapping[value]) {
+        return fieldMapping[value];
+      }
+      return value;
+    };
+
+    Papa.parse(file, {
+      header: true,
+      dynamicTyping: false,
+      skipEmptyLines: true,
+      transformHeader: (h: string) => h.trim().toLowerCase(),
+      complete: async (results) => {
+        try {
+          console.log('CSV Data:', results.data);
+          
+          const leadsData = results.data
+            .filter((row: any) => {
+              // Check if row has either full_name OR name field
+              const fullName = row.full_name?.trim() || row.name?.trim() || row.fullname?.trim() || '';
+              const contactNumber = row.contact_number?.trim() || row.contact?.trim() || row.phone?.trim() || '';
+              return fullName.length > 0 && contactNumber.length > 0;
+            })
+            .map((row: any) => {
+              // Get values from various possible column names
+              const fullName = row.full_name?.trim() || row.name?.trim() || row.fullname?.trim() || '';
+              const contactNumber = row.contact_number?.trim() || row.contact?.trim() || row.phone?.trim() || '';
+              
+              // Get lead_type with mapping
+              let leadType = (row.lead_type?.trim() || row.type?.trim() || row.priority?.trim() || 'pending').toLowerCase();
+              leadType = mapValue('lead_type', leadType);
+              
+              // Get call_status with mapping
+              let callStatus = (row.call_status?.trim() || row.status?.trim() || 'pending').toLowerCase();
+              callStatus = mapValue('call_status', callStatus);
+              
+              // Get project_name - only trim, don't remove if empty
+              const projectName = row.project_name || row.project || '';
+              
+              return {
+                full_name: fullName,
+                contact_number: contactNumber,
+                lead_type: leadType as 'pending' | 'hot' | 'cold' | 'fake' | 'connected',
+                call_status: callStatus as 'pending' | 'connected' | 'not_connected' | 'callback',
+                project_name: projectName || undefined,
+              };
+            });
+
+          console.log('Processed Leads:', leadsData);
+          console.log('Leads count:', leadsData.length);
+
+          if (leadsData.length === 0) {
+            setImportError('No valid leads found in CSV. Please check that your CSV has columns: full_name (or name), contact_number (or contact or phone)');
+            return;
+          }
+
+          // Use createLead API for each row instead of batch import
+          let successCount = 0;
+          let failureCount = 0;
+          const failedLeads: string[] = [];
+
+          for (const lead of leadsData) {
+            try {
+              const leadPayload: any = {
+                full_name: lead.full_name,
+                contact_number: lead.contact_number,
+                lead_type: lead.lead_type,
+                call_status: lead.call_status,
+              };
+              
+              // Always include project_name if it exists in the data, even if empty
+              if (lead.project_name !== undefined) {
+                leadPayload.project_name = lead.project_name;
+              }
+              
+              await createLeadMutation.mutateAsync(leadPayload);
+              successCount++;
+            } catch (err: any) {
+              // Check if it's a duplicate error - those are acceptable
+              const errorMessage = err.response?.data?.error || err.message || '';
+              const isDuplicate = errorMessage.includes('already exists');
+              
+              if (!isDuplicate) {
+                failureCount++;
+                failedLeads.push(`${lead.full_name} (${lead.contact_number})`);
+              }
+              // Log duplicate errors silently - they're expected
+              console.log(`Lead already exists or skipped: ${lead.full_name} (${lead.contact_number})`);
+            }
+          }
+
+          if (successCount > 0) {
+            let message = `Successfully imported ${successCount} leads!`;
+            if (failureCount > 0) {
+              message += ` (${failureCount} failed: ${failedLeads.join(', ')})`;
+            }
+            setImportSuccess(message);
+            setTimeout(() => {
+              setImportSuccess('');
+              setActiveTab('list');
+            }, 3000);
+          } else {
+            setImportError(`Failed to import all leads. ${failedLeads.join(', ')}`);
+          }
+          
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
+        } catch (err: any) {
+          console.error('Import error:', err);
+          setImportError(err.message || 'Failed to import leads');
+        }
+      },
+      error: (error: any) => {
+        console.error('Parse error:', error);
+        setImportError(`CSV parsing error: ${error.message}`);
+      },
+    });
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -82,6 +257,17 @@ export default function LeadsPage() {
             >
               <Plus className="h-4 w-4" />
               Add Lead
+            </button>
+            <button
+              onClick={() => setActiveTab('import')}
+              className={`pb-4 px-2 font-medium text-sm flex items-center gap-2 ${
+                activeTab === 'import'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              <Upload className="h-4 w-4" />
+              Import CSV
             </button>
             <button
               onClick={() => setActiveTab('list')}
@@ -211,6 +397,72 @@ export default function LeadsPage() {
           </div>
         )}
 
+        {activeTab === 'import' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            <h2 className="text-xl font-semibold mb-4">Import Leads from CSV</h2>
+            
+            {importError && (
+              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                {importError}
+              </div>
+            )}
+
+            {importSuccess && (
+              <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+                {importSuccess}
+              </div>
+            )}
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-3">
+                CSV File Format Requirements:
+              </label>
+              <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 space-y-3">
+                <div>
+                  <p className="font-semibold text-gray-800">Required Columns:</p>
+                  <p>• Name: <code className="bg-gray-200 px-2 py-1">full_name</code> OR <code className="bg-gray-200 px-2 py-1">name</code></p>
+                  <p>• Contact: <code className="bg-gray-200 px-2 py-1">contact_number</code> OR <code className="bg-gray-200 px-2 py-1">phone</code></p>
+                </div>
+                
+                <div>
+                  <p className="font-semibold text-gray-800">Optional Columns:</p>
+                  <p>• Lead Type: <code className="bg-gray-200 px-2 py-1">lead_type</code> or <code className="bg-gray-200 px-2 py-1">priority</code></p>
+                  <p className="text-xs ml-4">Valid values: pending, hot, cold, fake, connected (or high→hot, medium→connected, low→cold)</p>
+                  <p>• Call Status: <code className="bg-gray-200 px-2 py-1">call_status</code> or <code className="bg-gray-200 px-2 py-1">status</code></p>
+                  <p className="text-xs ml-4">Valid values: pending, connected, not_connected, callback (or new→pending, hot→connected, cold→not_connected)</p>
+                  <p>• Project: <code className="bg-gray-200 px-2 py-1">project_name</code> or <code className="bg-gray-200 px-2 py-1">project</code></p>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
+              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+              <p className="text-gray-600 mb-4">Upload your CSV file to import leads</p>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".csv"
+                onChange={handleCSVImport}
+                disabled={createLeadMutation.isPending}
+                className="hidden"
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={createLeadMutation.isPending}
+                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
+              >
+                {createLeadMutation.isPending ? 'Importing...' : 'Select CSV File'}
+              </button>
+            </div>
+
+            {createLeadMutation.isError && (
+              <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                Error: {(createLeadMutation.error as any)?.message || 'Failed to import leads'}
+              </div>
+            )}
+          </div>
+        )}
+
         {activeTab === 'list' && (
           <div className="bg-white rounded-lg shadow">
             {deleteError && (
@@ -231,12 +483,6 @@ export default function LeadsPage() {
                 <p className="mt-2">Loading leads...</p>
               </div>
             )}
-
-            {/* {leadsError && (
-              <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-                Error: {(leadsError as any)?.message || 'Failed to load leads'}
-              </div>
-            )} */}
 
             {!leadsLoading && (!leads || leads.length === 0) && (
               <div className="p-8 text-center text-gray-600">
@@ -273,7 +519,7 @@ export default function LeadsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {leads.map((lead) => (
+                    {leads.map((lead: any) => (
                       <tr key={lead._id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 text-sm text-gray-900">
                           {lead.full_name}
@@ -310,7 +556,10 @@ export default function LeadsPage() {
                         <td className="px-6 py-4 text-sm text-center">
                           <div className="flex items-center justify-start gap-2">
                             <button
-                              onClick={() => router.push(`/dashboard/leads/${lead._id}/edit`)}
+                              onClick={() => {
+                                setEditingLeadId(lead._id);
+                                setEditingLead(lead);
+                              }}
                               className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                               title="Edit Lead"
                             >
@@ -342,6 +591,21 @@ export default function LeadsPage() {
           </div>
         )}
       </div>
+
+      {/* Edit Lead Modal */}
+      <EditLeadModal
+        leadId={editingLeadId || ''}
+        isOpen={!!editingLeadId}
+        lead={editingLead}
+        onClose={() => {
+          setEditingLeadId(null);
+          setEditingLead(null);
+        }}
+        onSuccess={() => {
+          setDeleteSuccess('Lead updated successfully!');
+          setTimeout(() => setDeleteSuccess(''), 3000);
+        }}
+      />
     </div>
   );
 }

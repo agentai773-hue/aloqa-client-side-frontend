@@ -3,15 +3,17 @@
 import { Search, Bell, User, LogOut, Phone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAppDispatch } from '@/store/hooks';
+import { performLogout } from '@/store/slices/authActions';
 
 export default function Header() {
   const router = useRouter();
+  const dispatch = useAppDispatch(); // Use the correctly typed dispatch
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
-    router.push("/auth/login");
+  const handleLogout = async () => {
+    await dispatch(performLogout(router)); // Pass the router instance
+    router.push("/auth/login"); // Redirect to login page
   };
 
   return (
