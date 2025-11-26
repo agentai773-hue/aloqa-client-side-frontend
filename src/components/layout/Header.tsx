@@ -3,15 +3,17 @@
 import { Search, Bell, User, LogOut, Phone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useAppDispatch } from '@/store/hooks';
+import { performLogout } from '@/store/slices/authActions';
 
 export default function Header() {
   const router = useRouter();
+  const dispatch = useAppDispatch(); // Use the correctly typed dispatch
   const [showUserMenu, setShowUserMenu] = useState(false);
 
-  const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("userEmail");
-    router.push("/auth/login");
+  const handleLogout = async () => {
+    await dispatch(performLogout(router)); // Pass the router instance
+    router.push("/auth/login"); // Redirect to login page
   };
 
   return (
@@ -23,7 +25,7 @@ export default function Header() {
             <Phone className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-bold text-gray-900">Real Estate CRM</h1>
+            <h1 className="text-lg font-bold text-gray-900">Aloqa AI</h1>
             <p className="text-xs text-gray-500">Client Calling Portal</p>
           </div>
         </div>

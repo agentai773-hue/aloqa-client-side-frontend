@@ -1,4 +1,4 @@
-# Real Estate CRM - Client Calling Portal
+# Aloqa AI- Client Calling Portal
 
 ## 🎯 Project Overview
 

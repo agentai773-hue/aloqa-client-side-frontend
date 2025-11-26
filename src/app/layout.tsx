@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import "./globals.css";
+import "../app/globals.css";
 import AuthProvider from "@/components/auth/AuthProvider";
+import ReduxProvider from "@/components/providers/ReduxProvider";
+import QueryProvider from "@/components/providers/QueryProvider";
 
 export const metadata: Metadata = {
-  title: "Real Estate CRM",
+  title: "Aloqa AI - Client Calling Portal",
   description: "Client calling portal for real estate",
 };
 
@@ -15,7 +17,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <ReduxProvider>
+          <QueryProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </QueryProvider>
+        </ReduxProvider>
       </body>
     </html>
   );

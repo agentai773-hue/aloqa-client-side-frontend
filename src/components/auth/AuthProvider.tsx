@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Cookies from "js-cookie";
+import { useAuth } from "@/hooks/useAuthRedux";
 import { FullPageLoader } from "@/components/ui";
 
 export default function AuthProvider({
@@ -11,40 +13,44 @@ export default function AuthProvider({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { isAuthenticated, isLoading, verify } = useAuth();
+  const [isInitializing, setIsInitializing] = useState(true);
+  const isLoginPage = pathname === "/auth/login";
+  const initRef = useRef(false);
 
+  // Initialize auth from token on app startup (only once)
   useEffect(() => {
-    // Check if user is logged in
-    const checkAuth = () => {
-      const loggedIn = localStorage.getItem("isLoggedIn") === "true";
-      setIsAuthenticated(loggedIn);
+    if (initRef.current) return;
+    initRef.current = true;
 
-      // If not logged in and not on login page, redirect to login
-      if (!loggedIn && pathname !== "/auth/login") {
-        router.push("/auth/login");
-        setIsLoading(false);
+    async function initAuth() {
+      // Check for token in cookies (backend stores token in cookies)
+      const token = Cookies.get('token');
+      if (token) {
+        await verify();
       }
-      // If logged in and on login page, redirect to dashboard
-      else if (loggedIn && pathname === "/auth/login") {
-        router.push("/");
-        setIsLoading(false);
-      } else {
-        setIsLoading(false);
-      }
-    };
+      setIsInitializing(false);
+    }
+    initAuth();
+  }, [verify]);
 
-    checkAuth();
-  }, [pathname, router]);
+  // Handle redirects after auth is initialized
+  useEffect(() => {
+    if (isInitializing) return;
 
-  // Show loader during authentication check
-  if (isLoading) {
-    return <FullPageLoader text="Loading..." />;
+    if (isAuthenticated && isLoginPage) {
+      router.push("/");
+    } else if (!isAuthenticated && !isLoginPage) {
+      router.push("/auth/login");
+    }
+  }, [isAuthenticated, pathname, router, isInitializing, isLoginPage]);
+
+  if (isInitializing || isLoading) {
+    return <FullPageLoader text="Initializing..." />;
   }
 
-  // Don't render protected content if not authenticated
-  if (!isAuthenticated && pathname !== "/auth/login") {
-    return <FullPageLoader text="Redirecting..." />;
+  if (!isAuthenticated && !isLoginPage) {
+    return <FullPageLoader text="Redirecting to login..." />;
   }
 
   return <>{children}</>;
