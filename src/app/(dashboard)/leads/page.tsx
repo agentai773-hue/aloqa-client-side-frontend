@@ -3,6 +3,7 @@
 import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeads, useDeleteLead, useCreateLead } from '@/hooks/useLeads';
+import { useInitiateCall } from '@/hooks/useInitiateCall';
 import { Edit, Trash2, Phone, Plus, Upload } from 'lucide-react';
 import Papa from 'papaparse';
 import { EditLeadModal } from '@/components/leads/EditLeadModal';
@@ -12,6 +13,7 @@ export default function LeadsPage() {
   const { data: leads = [], isLoading: leadsLoading, error: leadsError } = useLeads();
   const deleteLeadMutation = useDeleteLead();
   const createLeadMutation = useCreateLead();
+  const callMutation = useInitiateCall();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [activeTab, setActiveTab] = useState<'add' | 'import' | 'list'>('list');
@@ -19,6 +21,8 @@ export default function LeadsPage() {
   const [deleteSuccess, setDeleteSuccess] = useState<string>('');
   const [importError, setImportError] = useState<string>('');
   const [importSuccess, setImportSuccess] = useState<string>('');
+  const [callError, setCallError] = useState<string>('');
+  const [callSuccess, setCallSuccess] = useState<string>('');
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<any>(null);
   const [formData, setFormData] = useState({
@@ -28,6 +32,21 @@ export default function LeadsPage() {
     call_status: 'pending' as const,
     project_name: '',
   });
+
+  const handleCallLead = async (leadId: string) => {
+    setCallError('');
+    setCallSuccess('');
+    try {
+      const result = await callMutation.mutateAsync({ leadId });
+      if (result.success) {
+        setCallSuccess(`Call initiated successfully! Calling ${result.data?.lead_name}`);
+        setTimeout(() => setCallSuccess(''), 5000);
+      }
+    } catch (err: any) {
+      setCallError(err.message || 'Failed to initiate call');
+      setTimeout(() => setCallError(''), 5000);
+    }
+  };
 
   const handleDeleteLead = async (id: string) => {
     if (confirm('Are you sure you want to delete this lead?')) {
@@ -465,6 +484,18 @@ export default function LeadsPage() {
 
         {activeTab === 'list' && (
           <div className="bg-white rounded-lg shadow">
+            {callError && (
+              <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-t">
+                {callError}
+              </div>
+            )}
+
+            {callSuccess && (
+              <div className="p-4 bg-green-100 border border-green-400 text-green-700 rounded-t">
+                {callSuccess}
+              </div>
+            )}
+
             {deleteError && (
               <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-t">
                 {deleteError}
@@ -566,8 +597,9 @@ export default function LeadsPage() {
                               <Edit className="h-4 w-4" />
                             </button>
                             <button
-                              onClick={() => window.open(`tel:${lead.contact_number}`)}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              onClick={() => handleCallLead(lead._id)}
+                              disabled={callMutation.isPending}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
                               title="Call Lead"
                             >
                               <Phone className="h-4 w-4" />

@@ -11,12 +11,16 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Zap,
+  Bot,
 } from "lucide-react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "Leads", href: "/leads", icon: Users },
   { name: "Make Call", href: "/make-call", icon: Phone },
+  { name: "Assistants", href: "/assistants", icon: Bot },
+  { name: "Assign AI", href: "/assign-ai", icon: Zap },
   { name: "Call History", href: "/call-history", icon: History },
 ];
 
