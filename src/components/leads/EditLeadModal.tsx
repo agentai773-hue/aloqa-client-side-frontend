@@ -95,7 +95,12 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
         onClose();
       }, 1000);
     } catch (err: any) {
-      setLocalError(err.message || 'Failed to update lead');
+      // Extract error message from different sources
+      const errorMessage = 
+        err?.response?.data?.error || 
+        err?.message || 
+        'Failed to update lead';
+      setLocalError(errorMessage);
     }
   };
 
@@ -131,7 +136,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
 
           {updateMutation.isError && (
             <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-              Error: {(updateMutation.error as any)?.message || 'Failed to update lead'}
+              {(updateMutation.error as any)?.message || 'Failed to update lead'}
             </div>
           )}
 

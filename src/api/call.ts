@@ -40,6 +40,11 @@ export interface CallHistoryRecord {
   projectName?: string;
   createdAt: string;
   updatedAt: string;
+  executionDetails?: {
+    transcript?: string;
+    [key: string]: any;
+  };
+  [key: string]: any; // Allow any other fields from API
 }
 
 export interface CallHistoryResponse {

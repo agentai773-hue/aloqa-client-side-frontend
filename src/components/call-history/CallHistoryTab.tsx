@@ -2,18 +2,25 @@
 
 import { useState, useEffect } from 'react';
 import { useCallHistory } from '@/hooks/useInitiateCall';
-import { Phone, Download, Loader, AlertCircle, Play, X, Pause, RefreshCw, Clock } from 'lucide-react';
+import { useSiteVisitData } from '@/hooks/useSiteVisits';
+import { Phone, Download, Loader, AlertCircle, Play, X, Pause, RefreshCw, Clock, Calendar, MapPin } from 'lucide-react';
 import axios from 'axios';
 
 export default function CallHistoryTab() {
   const [page, setPage] = useState(1);
   const [selectedCall, setSelectedCall] = useState<any>(null);
+  const [detailsTab, setDetailsTab] = useState<'overview' | 'transcript' | 'schedule'>('overview');
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const pageSize = 10;
   
   const { data: callHistoryData, isLoading, isError, error, refetch } = useCallHistory(page, pageSize);
+  
+  // Get site visits data if call is selected and has leadId
+  const { allSiteVisits: siteVisits, isLoading: siteVisitsLoading } = useSiteVisitData(
+    selectedCall?.leadId || null
+  );
 
   const calls = (callHistoryData?.data as any[]) || [];
   const pagination = callHistoryData?.pagination;
@@ -305,22 +312,58 @@ export default function CallHistoryTab() {
               </button>
             </div>
 
+            {/* Tab Navigation */}
+            <div className="sticky top-[68px] bg-white border-b border-gray-200 flex gap-0">
+              <button
+                onClick={() => setDetailsTab('overview')}
+                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition ${
+                  detailsTab === 'overview'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Overview
+              </button>
+              <button
+                onClick={() => setDetailsTab('transcript')}
+                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition ${
+                  detailsTab === 'transcript'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Transcript
+              </button>
+              <button
+                onClick={() => setDetailsTab('schedule')}
+                className={`flex-1 px-4 py-3 text-sm font-medium border-b-2 transition ${
+                  detailsTab === 'schedule'
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Schedule
+              </button>
+            </div>
+
             {/* Content */}
             <div className="p-6 space-y-6">
-              {/* Contact Information */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Contact Information</h3>
-                <div className="space-y-2">
+              {detailsTab === 'overview' && (
+                <>
+                  {/* Contact Information */}
                   <div>
-                    <p className="text-xs text-gray-600">Name</p>
-                    <p className="text-sm font-medium text-gray-900">{selectedCall.callerName || '-'}</p>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Contact Information</h3>
+                    <div className="space-y-2">
+                      <div>
+                        <p className="text-xs text-gray-600">Name</p>
+                        <p className="text-sm font-medium text-gray-900">{selectedCall.callerName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-600">Phone Number</p>
+                        <p className="text-sm font-medium text-gray-900 break-all">{selectedCall.recipientPhoneNumber}</p>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-600">Phone Number</p>
-                    <p className="text-sm font-medium text-gray-900 break-all">{selectedCall.recipientPhoneNumber}</p>
-                  </div>
-                </div>
-              </div>
 
               {/* Call Details */}
               <div>
@@ -355,8 +398,8 @@ export default function CallHistoryTab() {
                 </div>
               </div>
 
-              {/* Recording Section */}
-              {selectedCall.recordingUrl && (
+                  {/* Recording Section */}
+                  {selectedCall.recordingUrl && (
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900 mb-3">Recording</h3>
                   <div className="space-y-3">
@@ -381,13 +424,13 @@ export default function CallHistoryTab() {
                       Download Recording
                     </a>
                   </div>
-                </div>
-              )}
+                    </div>
+                  )}
 
-              {/* Technical Details */}
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900 mb-3">Technical Details</h3>
-                <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
+                  {/* Technical Details */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900 mb-3">Technical Details</h3>
+                    <div className="space-y-2 bg-gray-50 p-4 rounded-lg">
                   <div>
                     <p className="text-xs text-gray-600">Call ID</p>
                     <p className="text-xs font-mono text-gray-900 break-all">{selectedCall.callId || selectedCall._id || '-'}</p>
@@ -396,18 +439,190 @@ export default function CallHistoryTab() {
                     <p className="text-xs text-gray-600">Agent ID</p>
                     <p className="text-xs font-mono text-gray-900 break-all">{selectedCall.agentId || '-'}</p>
                   </div>
-                  {selectedCall.recordingId && (
-                    <div>
-                      <p className="text-xs text-gray-600">Recording ID</p>
-                      <p className="text-xs font-mono text-gray-900 break-all">{selectedCall.recordingId}</p>
+                      {selectedCall.recordingId && (
+                        <div>
+                          <p className="text-xs text-gray-600">Recording ID</p>
+                          <p className="text-xs font-mono text-gray-900 break-all">{selectedCall.recordingId}</p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                </>
+              )}
+
+              {detailsTab === 'transcript' && (
+                <CallTranscriptTab selectedCall={selectedCall} />
+              )}
+
+              {detailsTab === 'schedule' && (
+                <CallScheduleTab selectedCall={selectedCall} siteVisits={siteVisits} siteVisitsLoading={siteVisitsLoading} />
+              )}
             </div>
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Transcript Tab Component
+ */
+function CallTranscriptTab({ selectedCall }: { selectedCall: any }) {
+  const transcript = selectedCall.conversationTranscript || 
+                     selectedCall.executionDetails?.transcript ||
+                     selectedCall.executionDetails?.conversation ||
+                     selectedCall.executionDetails?.conversation_data ||
+                     selectedCall.executionDetails?.messages ||
+                     null;
+
+  if (!transcript) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-600">No transcript available</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="bg-white rounded-lg border border-gray-200 p-4 max-h-96 overflow-y-auto space-y-4">
+        {typeof transcript === 'string' ? (
+          <div className="space-y-3">
+            {transcript.split('\n').map((line: string, idx: number) => {
+              const isAgent = line.toLowerCase().startsWith('assistant:');
+              const text = line.replace(/^(assistant:|user:)\s*/i, '').trim();
+              
+              if (!text) return null;
+              
+              return (
+                <div key={idx} className={`flex ${isAgent ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-xs rounded-lg p-3 ${
+                    isAgent 
+                      ? 'bg-blue-100 text-gray-900 border-l-4 border-blue-600' 
+                      : 'bg-gray-100 text-gray-900'
+                  }`}>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">
+                      {isAgent ? 'Assistant' : 'User'}
+                    </p>
+                    <p className="text-sm text-gray-900 leading-relaxed">{text}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : Array.isArray(transcript) ? (
+          <div className="space-y-4">
+            {transcript.map((msg: any, idx: number) => {
+              const isAgent = msg.role === 'agent' || msg.sender === 'agent' || msg.type === 'agent_message';
+              const displayText = msg.message || msg.text || msg.content || '';
+              
+              return (
+                <div key={idx} className={`flex ${isAgent ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-xs rounded-lg p-3 ${
+                    isAgent 
+                      ? 'bg-blue-100 text-gray-900 border-l-4 border-blue-600' 
+                      : 'bg-gray-100 text-gray-900'
+                  }`}>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">
+                      {isAgent ? 'Assistant' : 'User'}
+                    </p>
+                    <p className="text-sm text-gray-900 leading-relaxed">{displayText}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600">Transcript format not supported</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Schedule Tab Component - Shows site visits for the lead
+ */
+function CallScheduleTab({ 
+  selectedCall, 
+  siteVisits, 
+  siteVisitsLoading 
+}: { 
+  selectedCall: any;
+  siteVisits: any[];
+  siteVisitsLoading: boolean;
+}) {
+  if (siteVisitsLoading) {
+    return (
+      <div className="flex justify-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  if (!siteVisits || siteVisits.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+        <p className="text-gray-600">No site visits scheduled</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {siteVisits.map((visit: any) => (
+        <div key={visit._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+          {/* Date */}
+          <div className="flex items-center gap-2 mb-2">
+            <Calendar className="h-4 w-4 text-purple-600" />
+            <p className="text-sm font-semibold text-gray-900">
+              {new Date(visit.visitDate).toLocaleDateString()}
+            </p>
+          </div>
+
+          {/* Time */}
+          <div className="flex items-center gap-2 mb-2">
+            <Clock className="h-4 w-4 text-blue-600" />
+            <p className="text-sm text-gray-600">{visit.visitTime}</p>
+          </div>
+
+          {/* Project */}
+          <div className="flex items-start gap-2 mb-2">
+            <MapPin className="h-4 w-4 text-green-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">{visit.projectName}</p>
+              {visit.address && <p className="text-xs text-gray-600">{visit.address}</p>}
+            </div>
+          </div>
+
+          {/* Status */}
+          <div className="mt-3">
+            <span
+              className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
+                visit.status === 'scheduled'
+                  ? 'bg-blue-100 text-blue-800'
+                  : visit.status === 'completed'
+                    ? 'bg-green-100 text-green-800'
+                    : visit.status === 'cancelled'
+                      ? 'bg-red-100 text-red-800'
+                      : 'bg-yellow-100 text-yellow-800'
+              }`}
+            >
+              {visit.status}
+            </span>
+          </div>
+
+          {/* Notes */}
+          {visit.notes && <p className="text-xs text-gray-600 mt-2 italic">{visit.notes}</p>}
+
+          {/* Extracted Badge */}
+          {visit.extractedFromTranscript && (
+            <p className="text-xs text-purple-600 mt-2">📍 Extracted from call</p>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

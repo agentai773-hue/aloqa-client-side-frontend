@@ -23,6 +23,19 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// Handle error responses
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Extract error message from API response if available
+    if (error.response?.data?.error) {
+      const errorMessage = error.response.data.error;
+      error.message = errorMessage;
+    }
+    return Promise.reject(error);
+  }
+);
+
 export interface LoginRequest {
   email: string;
   password: string;

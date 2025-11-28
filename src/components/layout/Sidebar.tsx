@@ -22,6 +22,8 @@ const navigation = [
   { name: "Assistants", href: "/assistants", icon: Bot },
   { name: "Assign AI", href: "/assign-ai", icon: Zap },
   { name: "Call History", href: "/call-history", icon: History },
+  { name: "Site Visit", href: "/site-visits-schedule", icon: History },
+
 ];
 
 export default function Sidebar() {

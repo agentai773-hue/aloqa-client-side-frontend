@@ -4,17 +4,32 @@ import React, { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeads, useDeleteLead, useCreateLead } from '@/hooks/useLeads';
 import { useInitiateCall } from '@/hooks/useInitiateCall';
-import { Edit, Trash2, Phone, Plus, Upload } from 'lucide-react';
+import { useCallHistory } from '@/hooks/useInitiateCall';
+import { useSiteVisitData } from '@/hooks/useSiteVisits';
+import { Edit, Trash2, Phone, Plus, Upload, Play, Calendar, MapPin, Clock } from 'lucide-react';
 import Papa from 'papaparse';
 import { EditLeadModal } from '@/components/leads/EditLeadModal';
 
 export default function LeadsPage() {
   const router = useRouter();
-  const { data: leads = [], isLoading: leadsLoading, error: leadsError } = useLeads();
+  const { data: leads = [], isLoading: leadsLoading, error: leadsError, refetch: refetchLeads } = useLeads();
   const deleteLeadMutation = useDeleteLead();
   const createLeadMutation = useCreateLead();
   const callMutation = useInitiateCall();
+  const { data: callHistoryData } = useCallHistory(1, 1000); // Fetch all calls for recordings
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [recordingsSidebar, setRecordingsSidebar] = useState<any>(null);
+  const [siteVisitsSidebar, setSiteVisitsSidebar] = useState<any>(null);
+  const [sidebarTab, setSidebarTab] = useState<'recordings' | 'site-visits'>('recordings');
+
+  // Debug: Log call history data whenever it changes
+  React.useEffect(() => {
+    console.log('📞 useCallHistory data updated:', callHistoryData);
+    if (callHistoryData?.data && Array.isArray(callHistoryData.data)) {
+      console.log('📊 Total calls:', (callHistoryData.data as any[]).length);
+      console.log('📊 Calls with recording:', (callHistoryData.data as any[]).filter((c: any) => c.recordingUrl).length);
+    }
+  }, [callHistoryData]);
 
   const [activeTab, setActiveTab] = useState<'add' | 'import' | 'list'>('list');
   const [deleteError, setDeleteError] = useState<string>('');
@@ -25,6 +40,7 @@ export default function LeadsPage() {
   const [callSuccess, setCallSuccess] = useState<string>('');
   const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
   const [editingLead, setEditingLead] = useState<any>(null);
+  const [selectedRecording, setSelectedRecording] = useState<any>(null);
   const [formData, setFormData] = useState({
     full_name: '',
     contact_number: '',
@@ -32,6 +48,46 @@ export default function LeadsPage() {
     call_status: 'pending' as const,
     project_name: '',
   });
+
+  // Get all recordings for a specific lead
+  const getLeadRecordings = (leadId: string) => {
+    const calls = (callHistoryData?.data as any[]) || [];
+    console.log('🔍 Call History Data:', callHistoryData);
+    console.log('🔍 All Calls:', calls);
+    console.log('🔍 Looking for lead:', leadId);
+    const filtered = calls.filter(call => {
+      console.log('📞 Checking call:', { callLeadId: call.leadId, hasRecording: !!call.recordingUrl });
+      return call.leadId === leadId && call.recordingUrl;
+    });
+    console.log('✅ Filtered recordings for', leadId, ':', filtered);
+    return filtered;
+  };
+
+  const handleViewRecordings = (leadId: string, leadName: string) => {
+    console.log('👆 View Recordings clicked for:', leadName, leadId);
+    const recordings = getLeadRecordings(leadId);
+    console.log('📊 Found recordings:', recordings);
+    setRecordingsSidebar({ leadId, leadName, recordings });
+  };
+
+  const handlePlayRecording = (call: any) => {
+    console.log('▶️ Playing recording:', call);
+    console.log('📊 Recording details:', {
+      recordingUrl: call.recordingUrl,
+      callDuration: call.callDuration,
+      createdAt: call.createdAt,
+      projectName: call.projectName,
+      executionDetails: call.executionDetails ? 'exists' : 'missing',
+      hasTranscript: !!call.executionDetails?.transcript
+    });
+    setSelectedRecording(call);
+    setRecordingsSidebar(null);
+  };
+
+  const handleViewSiteVisits = (leadId: string, leadName: string, leadData: any) => {
+    setSiteVisitsSidebar({ leadId, leadName, leadData });
+    setSidebarTab('site-visits');
+  };
 
   const handleCallLead = async (leadId: string) => {
     setCallError('');
@@ -408,8 +464,10 @@ export default function LeadsPage() {
                 {createLeadMutation.isPending ? 'Creating...' : 'Create Lead'}
               </button>
               {createLeadMutation.isError && (
-                <div className="text-red-600 text-sm">
-                  Error: {(createLeadMutation.error as any)?.message || 'Failed to create lead'}
+                <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+                  {(createLeadMutation.error as any)?.response?.data?.error || 
+                   (createLeadMutation.error as any)?.message || 
+                   'Failed to create lead'}
                 </div>
               )}
             </form>
@@ -596,13 +654,30 @@ export default function LeadsPage() {
                             >
                               <Edit className="h-4 w-4" />
                             </button>
+                            {getLeadRecordings(lead._id).length > 0 ? (
+                              <button
+                                onClick={() => handleViewRecordings(lead._id, lead.full_name)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                                title={`View ${getLeadRecordings(lead._id).length} Recording(s)`}
+                              >
+                                <Play className="h-4 w-4 fill-current" />
+                              </button>
+                            ) : lead.call_status === 'completed' ? null : (
+                              <button
+                                onClick={() => handleCallLead(lead._id)}
+                                disabled={callMutation.isPending}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                                title="Call Lead"
+                              >
+                                <Phone className="h-4 w-4" />
+                              </button>
+                            )}
                             <button
-                              onClick={() => handleCallLead(lead._id)}
-                              disabled={callMutation.isPending}
-                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-                              title="Call Lead"
+                              onClick={() => handleViewSiteVisits(lead._id, lead.full_name, lead)}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Site Visits"
                             >
-                              <Phone className="h-4 w-4" />
+                              <Calendar className="h-4 w-4" />
                             </button>
                             <button
                               onClick={() => handleDeleteLead(lead._id)}
@@ -636,8 +711,409 @@ export default function LeadsPage() {
         onSuccess={() => {
           setDeleteSuccess('Lead updated successfully!');
           setTimeout(() => setDeleteSuccess(''), 3000);
+          refetchLeads();
         }}
       />
+
+      {/* Recording Modal */}
+      {selectedRecording && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+            onClick={() => setSelectedRecording(null)}
+          />
+          <div className="fixed inset-0 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-xl font-semibold mb-4">{selectedRecording.callerName || 'Call Recording'}</h3>
+              
+              {/* Audio Player */}
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <audio
+                  controls
+                  autoPlay
+                  className="w-full"
+                >
+                  <source src={selectedRecording.recordingUrl} type="audio/mpeg" />
+                  Your browser does not support the audio element.
+                </audio>
+              </div>
+              
+              {/* Details */}
+              <div className="space-y-2 mb-6 text-sm text-gray-600">
+                <p><strong>Duration:</strong> {selectedRecording.callDuration || 0}s</p>
+                <p><strong>Date:</strong> {new Date(selectedRecording.createdAt).toLocaleDateString()} at {new Date(selectedRecording.createdAt).toLocaleTimeString()}</p>
+                <p><strong>Project:</strong> {selectedRecording.projectName || '-'}</p>
+              </div>
+
+              {/* Transcript Section */}
+              {(() => {
+                const hasTranscript = selectedRecording.executionDetails?.transcript;
+                console.log('🎤 Checking transcript:', {
+                  hasExecutionDetails: !!selectedRecording.executionDetails,
+                  transcript: selectedRecording.executionDetails?.transcript,
+                  hasTranscript
+                });
+                
+                if (!hasTranscript) {
+                  console.log('❌ No transcript found');
+                  return null;
+                }
+                
+                console.log('✅ Rendering transcript');
+                return (
+                  <div className="mb-6 border-t pt-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">Transcript</h4>
+                    <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                      <div className="space-y-3 text-sm">
+                        {selectedRecording.executionDetails.transcript.split('\n').map((line: string, idx: number) => {
+                          const isAgent = line.toLowerCase().startsWith('assistant:');
+                          const text = line.replace(/^(assistant:|user:)\s*/i, '').trim();
+                          
+                          if (!text) return null;
+                          
+                          return (
+                            <div key={idx} className={`flex ${isAgent ? 'justify-start' : 'justify-end'}`}>
+                              <div className={`max-w-xs rounded-lg p-3 ${
+                                isAgent 
+                                  ? 'bg-blue-100 text-gray-900 border-l-4 border-blue-600' 
+                                  : 'bg-gray-200 text-gray-900'
+                              }`}>
+                                <p className="text-xs font-semibold text-gray-700 mb-1">
+                                  {isAgent ? 'Assistant' : 'User'}
+                                </p>
+                                <p className="text-sm leading-relaxed">{text}</p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Buttons */}
+              <div className="flex gap-3">
+                <a
+                  href={selectedRecording.recordingUrl}
+                  download
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-center text-sm"
+                >
+                  Download
+                </a>
+                <button
+                  onClick={() => setSelectedRecording(null)}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition text-sm"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Recordings Sidebar */}
+      {recordingsSidebar && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+            onClick={() => setRecordingsSidebar(null)}
+          />
+          <div className="fixed right-0 top-0 h-screen w-full max-w-md bg-white shadow-2xl z-50 overflow-y-auto">
+            <style>{`
+              @keyframes slideIn {
+                from { transform: translateX(100%); }
+                to { transform: translateX(0); }
+              }
+            `}</style>
+            <div className="animate-[slideIn_0.3s_ease-out]">
+              {/* Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Recordings</h2>
+                  <p className="text-sm text-gray-600 mt-1">{recordingsSidebar.leadName}</p>
+                </div>
+                <button
+                  onClick={() => setRecordingsSidebar(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Recordings List */}
+              <div className="p-6 space-y-4">
+                {recordingsSidebar.recordings.length === 0 ? (
+                  <p className="text-center text-gray-600 py-8">No recordings found</p>
+                ) : (
+                  recordingsSidebar.recordings.map((recording: any, idx: number) => (
+                    <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                      {/* Recording Info */}
+                      <div className="mb-3">
+                        <p className="text-sm font-semibold text-gray-900">
+                          Recording {idx + 1}
+                        </p>
+                        <p className="text-xs text-gray-600 mt-1">
+                          {new Date(recording.createdAt).toLocaleDateString()} at {new Date(recording.createdAt).toLocaleTimeString()}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          Duration: {recording.callDuration || 0}s
+                        </p>
+                      </div>
+
+                      {/* Audio Player */}
+                      <div className="mb-3 bg-gray-50 rounded p-2">
+                        <audio controls className="w-full h-8">
+                          <source src={recording.recordingUrl} type="audio/mpeg" />
+                        </audio>
+                      </div>
+
+                      {/* Buttons */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handlePlayRecording(recording)}
+                          className="flex-1 text-xs px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                        >
+                          Full View
+                        </button>
+                        {recording.executionDetails?.transcript && (
+                          <button
+                            onClick={() => {
+                              setSelectedRecording(recording);
+                              setRecordingsSidebar(null);
+                            }}
+                            className="flex-1 text-xs px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
+                          >
+                            Transcript
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Site Visits Sidebar */}
+      {siteVisitsSidebar && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/50 z-40 transition-opacity"
+            onClick={() => setSiteVisitsSidebar(null)}
+          />
+          <div className="fixed right-0 top-0 h-screen w-full max-w-md bg-white shadow-2xl z-50 overflow-y-auto">
+            <style>{`
+              @keyframes slideIn {
+                from { transform: translateX(100%); }
+                to { transform: translateX(0); }
+              }
+            `}</style>
+            <div className="animate-[slideIn_0.3s_ease-out]">
+              {/* Header */}
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-bold text-gray-900">Site Visits</h2>
+                  <p className="text-sm text-gray-600 mt-1">{siteVisitsSidebar.leadName}</p>
+                </div>
+                <button
+                  onClick={() => setSiteVisitsSidebar(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Site Visits List */}
+              <SiteVisitsList 
+                leadId={siteVisitsSidebar.leadId} 
+                leadData={siteVisitsSidebar.leadData}
+                callHistoryData={callHistoryData}
+              />
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Component to display site visits for a lead
+ */
+function SiteVisitsList({ 
+  leadId, 
+  leadData, 
+  callHistoryData 
+}: { 
+  leadId: string; 
+  leadData: any;
+  callHistoryData?: any;
+}) {
+  const { allSiteVisits, upcomingSiteVisits, completedSiteVisits, isLoading, error } = useSiteVisitData(leadId);
+  const [activeFilter, setActiveFilter] = React.useState<'all' | 'upcoming' | 'completed'>('upcoming');
+
+  const visitsToDisplay =
+    activeFilter === 'upcoming' ? upcomingSiteVisits : activeFilter === 'completed' ? completedSiteVisits : allSiteVisits;
+
+  // Get recordings for this lead
+  const leadRecordings = React.useMemo(() => {
+    if (!callHistoryData?.data) return [];
+    const calls = callHistoryData.data as any[];
+    return calls.filter(call => call.leadId === leadId && call.recordingUrl);
+  }, [callHistoryData, leadId]);
+
+  return (
+    <div className="p-6 space-y-4">
+      {/* Lead Info */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+        <p className="text-sm font-semibold text-gray-900">{leadData?.full_name}</p>
+        <p className="text-xs text-gray-600 mt-1 flex items-center gap-2">
+          <Phone className="h-3 w-3" />
+          {leadData?.contact_number}
+        </p>
+        <p className="text-xs text-gray-600 mt-1 flex items-center gap-2">
+          <MapPin className="h-3 w-3" />
+          {leadData?.project_name || 'N/A'}
+        </p>
+      </div>
+
+      {/* Recordings Section */}
+      {leadRecordings.length > 0 && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Play className="h-4 w-4 text-purple-600" />
+            <p className="text-sm font-semibold text-gray-900">Recordings ({leadRecordings.length})</p>
+          </div>
+          <div className="space-y-2 max-h-40 overflow-y-auto">
+            {leadRecordings.map((recording: any, idx: number) => (
+              <div key={idx} className="bg-white p-2 rounded border border-purple-100 text-xs">
+                <p className="font-medium text-gray-900">Recording {idx + 1}</p>
+                <p className="text-gray-600 mt-0.5">
+                  {new Date(recording.createdAt).toLocaleDateString()} at {new Date(recording.createdAt).toLocaleTimeString()}
+                </p>
+                <p className="text-gray-600">Duration: {recording.callDuration || 0}s</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Filter Tabs */}
+      <div className="flex gap-2 border-b border-gray-200">
+        <button
+          onClick={() => setActiveFilter('upcoming')}
+          className={`px-3 py-2 text-sm font-medium border-b-2 transition ${
+            activeFilter === 'upcoming'
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Upcoming ({upcomingSiteVisits.length})
+        </button>
+        <button
+          onClick={() => setActiveFilter('completed')}
+          className={`px-3 py-2 text-sm font-medium border-b-2 transition ${
+            activeFilter === 'completed'
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Completed ({completedSiteVisits.length})
+        </button>
+        <button
+          onClick={() => setActiveFilter('all')}
+          className={`px-3 py-2 text-sm font-medium border-b-2 transition ${
+            activeFilter === 'all'
+              ? 'border-purple-600 text-purple-600'
+              : 'border-transparent text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          All ({allSiteVisits.length})
+        </button>
+      </div>
+
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-purple-600"></div>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+          Error loading site visits: {(error as any)?.message}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && visitsToDisplay.length === 0 && (
+        <div className="text-center py-8">
+          <Calendar className="h-12 w-12 mx-auto text-gray-300 mb-2" />
+          <p className="text-gray-600 text-sm">No {activeFilter === 'upcoming' ? 'upcoming' : activeFilter === 'completed' ? 'completed' : ''} site visits</p>
+        </div>
+      )}
+
+      {/* Site Visits List */}
+      {!isLoading && visitsToDisplay.length > 0 && (
+        <div className="space-y-3">
+          {visitsToDisplay.map((visit: any) => (
+            <div key={visit._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+              {/* Date */}
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-4 w-4 text-purple-600" />
+                <p className="text-sm font-semibold text-gray-900">
+                  {new Date(visit.visitDate).toLocaleDateString()}
+                </p>
+              </div>
+
+              {/* Time */}
+              <div className="flex items-center gap-2 mb-2">
+                <Clock className="h-4 w-4 text-blue-600" />
+                <p className="text-sm text-gray-600">{visit.visitTime}</p>
+              </div>
+
+              {/* Project */}
+              <div className="flex items-start gap-2 mb-2">
+                <MapPin className="h-4 w-4 text-green-600 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{visit.projectName}</p>
+                  {visit.address && <p className="text-xs text-gray-600">{visit.address}</p>}
+                </div>
+              </div>
+
+              {/* Status Badge */}
+              <div className="mt-3">
+                <span
+                  className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
+                    visit.status === 'scheduled'
+                      ? 'bg-blue-100 text-blue-800'
+                      : visit.status === 'completed'
+                        ? 'bg-green-100 text-green-800'
+                        : visit.status === 'cancelled'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                  }`}
+                >
+                  {visit.status}
+                </span>
+              </div>
+
+              {/* Notes */}
+              {visit.notes && <p className="text-xs text-gray-600 mt-2 italic">{visit.notes}</p>}
+
+              {/* Extracted Badge */}
+              {visit.extractedFromTranscript && (
+                <p className="text-xs text-purple-600 mt-2">📍 Extracted from call</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -53,6 +53,13 @@ export function useCreateLead() {
       // Invalidate and refetch leads
       queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
     },
+    onError: (error: any) => {
+      // Extract proper error message from API response
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw error;
+    },
   });
 }
 
@@ -66,6 +73,13 @@ export function useUpdateLead() {
     onSuccess: () => {
       // Invalidate and refetch leads
       queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
+    },
+    onError: (error: any) => {
+      // Extract proper error message from API response
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      }
+      throw error;
     },
   });
 }
