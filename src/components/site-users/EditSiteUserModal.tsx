@@ -1,55 +1,54 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useUpdateLead } from '@/hooks/useLeads';
+import { useUpdateSiteUser } from '@/hooks/useSiteUsers';
 import { X } from 'lucide-react';
+import { SiteUser } from '@/api/site-users';
 
-interface EditLeadModalProps {
-  leadId: string;
+interface EditSiteUserModalProps {
+  userId: string;
   isOpen: boolean;
   onClose: () => void;
   onSuccess?: () => void;
-  lead: any;
+  user: SiteUser | null;
 }
 
-export const EditLeadModal: React.FC<EditLeadModalProps> = ({
-  leadId,
+export const EditSiteUserModal: React.FC<EditSiteUserModalProps> = ({
+  userId,
   isOpen,
   onClose,
   onSuccess,
-  lead,
+  user,
 }) => {
-  const updateMutation = useUpdateLead();
+  const updateMutation = useUpdateSiteUser();
 
   const [formData, setFormData] = React.useState({
     full_name: '',
+    email: '',
     contact_number: '',
-    lead_type: 'pending' as 'pending' | 'hot' | 'cold' | 'fake' | 'connected',
-    call_status: 'pending' as 'pending' | 'connected' | 'not_connected' | 'callback',
     project_name: '',
+    password: '',
   });
 
   const [localError, setLocalError] = React.useState<string>('');
   const [localSuccess, setLocalSuccess] = React.useState<string>('');
 
-  // Set form data when lead loads
+  // Set form data when user loads
   useEffect(() => {
-    if (lead && isOpen) {
+    if (user && isOpen) {
       setFormData({
-        full_name: lead.full_name,
-        contact_number: lead.contact_number,
-        lead_type: lead.lead_type,
-        call_status: lead.call_status,
-        project_name: lead.project_name || '',
+        full_name: user.full_name,
+        email: user.email,
+        contact_number: user.contact_number,
+        project_name: user.project_name || '',
+        password: '',
       });
       setLocalError('');
       setLocalSuccess('');
     }
-  }, [lead, isOpen]);
+  }, [user, isOpen]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -69,6 +68,14 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
       setLocalError('Full name is required');
       return;
     }
+    if (!formData.email.trim()) {
+      setLocalError('Email is required');
+      return;
+    }
+    if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(formData.email)) {
+      setLocalError('Please provide a valid email address');
+      return;
+    }
     if (!formData.contact_number.trim()) {
       setLocalError('Contact number is required');
       return;
@@ -77,25 +84,34 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
       setLocalError('Contact number must be at least 10 digits');
       return;
     }
+    if (!formData.project_name.trim()) {
+      setLocalError('Project name is required');
+      return;
+    }
 
     try {
       await updateMutation.mutateAsync({
-        id: lead._id,
+        id: userId,
         data: {
           full_name: formData.full_name,
+          email: formData.email,
           contact_number: formData.contact_number,
-          lead_type: formData.lead_type,
-          call_status: formData.call_status,
-          project_name: formData.project_name || undefined,
+          project_name: formData.project_name,
+          ...(formData.password && { password: formData.password }),
         },
       });
-      setLocalSuccess('Lead updated successfully!');
+
+      setLocalSuccess('Site user updated successfully!');
       setTimeout(() => {
         onSuccess?.();
         onClose();
       }, 1000);
     } catch (err: any) {
-      setLocalError(err.message || 'Failed to update lead');
+      const errorMessage =
+        err?.response?.data?.error ||
+        err?.message ||
+        'Failed to update site user';
+      setLocalError(errorMessage);
     }
   };
 
@@ -106,10 +122,10 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
       <div className="bg-white rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex items-center justify-between">
-          <h2 className="text-2xl font-bold text-gray-900">Edit Lead</h2>
+          <h2 className="text-2xl font-bold text-gray-900">Edit Site User</h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="text-gray-500 hover:text-gray-700 transition-colors"
           >
             <X className="h-6 w-6" />
           </button>
@@ -118,20 +134,20 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
         {/* Content */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {localError && (
-            <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
               {localError}
             </div>
           )}
 
           {localSuccess && (
-            <div className="p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+            <div className="p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
               {localSuccess}
             </div>
           )}
 
           {updateMutation.isError && (
-            <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-              Error: {(updateMutation.error as any)?.message || 'Failed to update lead'}
+            <div className="p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+              {(updateMutation.error as any)?.message || 'Failed to update site user'}
             </div>
           )}
 
@@ -148,7 +164,24 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 onChange={handleChange}
                 required
                 placeholder="Enter full name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                disabled={updateMutation.isPending}
+              />
+            </div>
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Email *
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                placeholder="Enter email"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 disabled={updateMutation.isPending}
               />
             </div>
@@ -165,64 +198,40 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
                 onChange={handleChange}
                 required
                 placeholder="Enter contact number"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 disabled={updateMutation.isPending}
               />
             </div>
 
-            {/* Lead Type */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Lead Type *
-              </label>
-              <select
-                name="lead_type"
-                value={formData.lead_type}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                disabled={updateMutation.isPending}
-              >
-                <option value="pending">Pending</option>
-                <option value="hot">Hot</option>
-                <option value="cold">Cold</option>
-                <option value="fake">Fake</option>
-                <option value="connected">Connected</option>
-              </select>
-            </div>
-
-            {/* Call Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Call Status *
-              </label>
-              <select
-                name="call_status"
-                value={formData.call_status}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-                disabled={updateMutation.isPending}
-              >
-                <option value="pending">Pending</option>
-                <option value="connected">Connected</option>
-                <option value="not_connected">Not Connected</option>
-                <option value="callback">Callback</option>
-              </select>
-            </div>
-
             {/* Project Name */}
-            <div className="md:col-span-2">
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Project Name
+                Project Name *
               </label>
               <input
                 type="text"
                 name="project_name"
                 value={formData.project_name}
                 onChange={handleChange}
-                placeholder="Enter project name (optional)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                required
+                placeholder="Enter project name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
+                disabled={updateMutation.isPending}
+              />
+            </div>
+
+            {/* Password */}
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Password (leave blank to keep current)
+              </label>
+              <input
+                type="password"
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter new password (optional)"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                 disabled={updateMutation.isPending}
               />
             </div>
@@ -241,7 +250,7 @@ export const EditLeadModal: React.FC<EditLeadModalProps> = ({
             <button
               type="submit"
               disabled={updateMutation.isPending}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
+              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
             >
               {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
             </button>

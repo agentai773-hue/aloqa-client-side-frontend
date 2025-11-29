@@ -16,6 +16,8 @@ export default function AuthProvider({
   const { isAuthenticated, isLoading, verify } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
   const isLoginPage = pathname === "/auth/login";
+  const isLogoutPage = pathname === "/logout";
+  const isForgotPasswordPage = pathname?.startsWith("/auth/forgot-password");
   const initRef = useRef(false);
 
   // Initialize auth from token on app startup (only once)
@@ -37,19 +39,24 @@ export default function AuthProvider({
   // Handle redirects after auth is initialized
   useEffect(() => {
     if (isInitializing) return;
+    
+    // Don't redirect on logout page - let it handle its own redirect
+    if (isLogoutPage) {
+      return;
+    }
 
     if (isAuthenticated && isLoginPage) {
       router.push("/");
-    } else if (!isAuthenticated && !isLoginPage) {
+    } else if (!isAuthenticated && !isLoginPage && !isForgotPasswordPage) {
       router.push("/auth/login");
     }
-  }, [isAuthenticated, pathname, router, isInitializing, isLoginPage]);
+  }, [isAuthenticated, pathname, router, isInitializing, isLoginPage, isLogoutPage, isForgotPasswordPage]);
 
   if (isInitializing || isLoading) {
     return <FullPageLoader text="Initializing..." />;
   }
 
-  if (!isAuthenticated && !isLoginPage) {
+  if (!isAuthenticated && !isLoginPage && !isForgotPasswordPage && !isLogoutPage) {
     return <FullPageLoader text="Redirecting to login..." />;
   }
 

@@ -24,7 +24,7 @@ export interface UpdateLeadRequest {
   full_name?: string;
   contact_number?: string;
   lead_type?: 'pending' | 'hot' | 'cold' | 'fake' | 'connected';
-  call_status?: 'pending' | 'connected' | 'not_connected' | 'callback';
+  call_status?: 'pending' | 'connected' | 'not_connected' | 'callback' | 'completed';
   project_name?: string | null;
 }
 
