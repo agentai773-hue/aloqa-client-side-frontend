@@ -103,17 +103,19 @@ export const performVerifyToken = () => async (dispatch: any) => {
 };
 
 // Clear token on logout 
-export const performLogout = (router: ReturnType<typeof useRouter>): ThunkAction<void, RootState, unknown, AnyAction> => async (dispatch) => {
+export const performLogout = (router?: ReturnType<typeof useRouter>): ThunkAction<void, RootState, unknown, AnyAction> => async (dispatch) => {
   try {
     await axiosInstance.post('/client-auth/logout'); // Call backend to clear cookie
     Cookies.remove('token'); // Clear token from client-side cookies
     dispatch({ type: LOGOUT });
-    router.push('/auth/login'); // Redirect to login page
+    // Only redirect if router is provided and we're not already handling it
+    if (router) {
+      // Don't redirect here - let the page handle it
+    }
   } catch (error) {
     // Even if backend call fails, clear client-side data
     Cookies.remove('token');
     dispatch({ type: LOGOUT });
-    router.push('/auth/login');
     console.error('Logout error:', error);
   }
 };

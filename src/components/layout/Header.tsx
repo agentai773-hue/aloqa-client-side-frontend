@@ -1,24 +1,14 @@
 "use client";
 
-import { Search, Bell, User, LogOut, Phone } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { Search, Bell, User, Phone } from "lucide-react";
 import { useState } from "react";
-import { useAppDispatch } from '@/store/hooks';
-import { performLogout } from '@/store/slices/authActions';
 
 export default function Header() {
-  const router = useRouter();
-  const dispatch = useAppDispatch(); // Use the correctly typed dispatch
   const [showUserMenu, setShowUserMenu] = useState(false);
-
-  const handleLogout = async () => {
-    await dispatch(performLogout(router)); // Pass the router instance
-    router.push("/auth/login"); // Redirect to login page
-  };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-10 shadow-sm">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-6 py-5">
         {/* Logo/Brand */}
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-linear-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
@@ -31,7 +21,7 @@ export default function Header() {
         </div>
 
         {/* Search */}
-        <div className="flex-1 max-w-xl mx-6">
+        {/* <div className="flex-1 max-w-xl mx-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -40,7 +30,7 @@ export default function Header() {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-shadow"
             />
           </div>
-        </div>
+        </div> */}
 
         {/* Right section */}
         <div className="flex items-center gap-4">
@@ -67,13 +57,7 @@ export default function Header() {
             {/* Dropdown Menu */}
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 animate-fadeIn">
-                <button
-                  onClick={handleLogout}
-                  className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Logout
-                </button>
+                {/* Profile options can be added here later */}
               </div>
             )}
           </div>

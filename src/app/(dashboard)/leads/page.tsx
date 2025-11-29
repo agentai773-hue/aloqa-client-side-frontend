@@ -1,85 +1,76 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLeads, useDeleteLead, useCreateLead } from '@/hooks/useLeads';
+import { useLeads, useDeleteLead } from '@/hooks/useLeads';
 import { useInitiateCall } from '@/hooks/useInitiateCall';
 import { useCallHistory } from '@/hooks/useInitiateCall';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
-import { Edit, Trash2, Phone, Plus, Upload, Play, Calendar, MapPin, Clock } from 'lucide-react';
-import Papa from 'papaparse';
-import { EditLeadModal } from '@/components/leads/EditLeadModal';
+import { Eye, Trash2, Phone, Play, Calendar, MapPin, Clock } from 'lucide-react';
 
 export default function LeadsPage() {
   const router = useRouter();
   const { data: leads = [], isLoading: leadsLoading, error: leadsError, refetch: refetchLeads } = useLeads();
   const deleteLeadMutation = useDeleteLead();
-  const createLeadMutation = useCreateLead();
   const callMutation = useInitiateCall();
-  const { data: callHistoryData } = useCallHistory(1, 1000); // Fetch all calls for recordings
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: callHistoryData } = useCallHistory(1, 1000);
   const [recordingsSidebar, setRecordingsSidebar] = useState<any>(null);
   const [siteVisitsSidebar, setSiteVisitsSidebar] = useState<any>(null);
   const [sidebarTab, setSidebarTab] = useState<'recordings' | 'site-visits'>('recordings');
-
-  // Debug: Log call history data whenever it changes
-  React.useEffect(() => {
-    console.log('📞 useCallHistory data updated:', callHistoryData);
-    if (callHistoryData?.data && Array.isArray(callHistoryData.data)) {
-      console.log('📊 Total calls:', (callHistoryData.data as any[]).length);
-      console.log('📊 Calls with recording:', (callHistoryData.data as any[]).filter((c: any) => c.recordingUrl).length);
-    }
-  }, [callHistoryData]);
-
-  const [activeTab, setActiveTab] = useState<'add' | 'import' | 'list'>('list');
   const [deleteError, setDeleteError] = useState<string>('');
   const [deleteSuccess, setDeleteSuccess] = useState<string>('');
-  const [importError, setImportError] = useState<string>('');
-  const [importSuccess, setImportSuccess] = useState<string>('');
   const [callError, setCallError] = useState<string>('');
   const [callSuccess, setCallSuccess] = useState<string>('');
-  const [editingLeadId, setEditingLeadId] = useState<string | null>(null);
-  const [editingLead, setEditingLead] = useState<any>(null);
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    contact_number: '',
-    lead_type: 'pending' as const,
-    call_status: 'pending' as const,
-    project_name: '',
-  });
+  
+  // Search and Filter States
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<string>('all');
 
-  // Get all recordings for a specific lead
+  // Auto-update lead_type to 'hot' when call_status becomes 'completed'
+  useEffect(() => {
+    if (leads && leads.length > 0) {
+      leads.forEach((lead: any) => {
+        if (lead.call_status === 'completed' && lead.lead_type !== 'hot') {
+          // Update lead_type to hot
+          updateLeadType(lead._id, 'hot');
+        }
+      });
+    }
+  }, [leads, callHistoryData]);
+
+  const updateLeadType = async (leadId: string, newType: string) => {
+    try {
+      const response = await fetch(`/api/leads-api/update/${leadId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ lead_type: newType }),
+      });
+      
+      if (response.ok) {
+        refetchLeads();
+      }
+    } catch (err) {
+      console.error('Error updating lead type:', err);
+    }
+  };
+
   const getLeadRecordings = (leadId: string) => {
     const calls = (callHistoryData?.data as any[]) || [];
-    console.log('🔍 Call History Data:', callHistoryData);
-    console.log('🔍 All Calls:', calls);
-    console.log('🔍 Looking for lead:', leadId);
-    const filtered = calls.filter(call => {
-      console.log('📞 Checking call:', { callLeadId: call.leadId, hasRecording: !!call.recordingUrl });
-      return call.leadId === leadId && call.recordingUrl;
-    });
-    console.log('✅ Filtered recordings for', leadId, ':', filtered);
-    return filtered;
+    return calls.filter(call => call.leadId === leadId && call.recordingUrl);
   };
 
   const handleViewRecordings = (leadId: string, leadName: string) => {
-    console.log('👆 View Recordings clicked for:', leadName, leadId);
     const recordings = getLeadRecordings(leadId);
-    console.log('📊 Found recordings:', recordings);
     setRecordingsSidebar({ leadId, leadName, recordings });
   };
 
   const handlePlayRecording = (call: any) => {
-    console.log('▶️ Playing recording:', call);
-    console.log('📊 Recording details:', {
-      recordingUrl: call.recordingUrl,
-      callDuration: call.callDuration,
-      createdAt: call.createdAt,
-      projectName: call.projectName,
-      executionDetails: call.executionDetails ? 'exists' : 'missing',
-      hasTranscript: !!call.executionDetails?.transcript
-    });
     setSelectedRecording(call);
     setRecordingsSidebar(null);
   };
@@ -118,574 +109,330 @@ export default function LeadsPage() {
     }
   };
 
-  const handleCreateLead = async (e: React.FormEvent) => {
-    e.preventDefault();
-    try {
-      await createLeadMutation.mutateAsync({
-        full_name: formData.full_name,
-        contact_number: formData.contact_number,
-        lead_type: formData.lead_type,
-        call_status: formData.call_status,
-        project_name: formData.project_name || undefined,
-      });
-      setFormData({
-        full_name: '',
-        contact_number: '',
-        lead_type: 'pending',
-        call_status: 'pending',
-        project_name: '',
-      });
-      setActiveTab('list');
-    } catch (err: any) {
-      console.error('Error creating lead:', err);
+  const getLeadTypeBadgeColor = (type: string) => {
+    switch(type) {
+      case 'hot':
+        return 'bg-red-100 text-red-800';
+      case 'cold':
+        return 'bg-blue-100 text-blue-800';
+      case 'fake':
+        return 'bg-gray-100 text-gray-800';
+      case 'connected':
+        return 'bg-green-100 text-green-800';
+      default:
+        return 'bg-yellow-100 text-yellow-800';
     }
   };
 
-  const handleCSVImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setImportError('');
-    setImportSuccess('');
-
-    // Value mapping for enum fields - maps CSV values to valid backend enum values
-    const valueMapping: Record<string, Record<string, string>> = {
-      'lead_type': {
-        'high': 'hot',
-        'High': 'hot',
-        'medium': 'connected',
-        'Medium': 'connected',
-        'low': 'cold',
-        'Low': 'cold',
-        'hot': 'hot',
-        'Hot': 'hot',
-        'cold': 'cold',
-        'Cold': 'cold',
-        'pending': 'pending',
-        'Pending': 'pending',
-        'connected': 'connected',
-        'Connected': 'connected',
-        'fake': 'fake',
-        'Fake': 'fake',
-      },
-      'call_status': {
-        'new': 'pending',
-        'New': 'pending',
-        'pending': 'pending',
-        'Pending': 'pending',
-        'connected': 'connected',
-        'Connected': 'connected',
-        'not_connected': 'not_connected',
-        'Not Connected': 'not_connected',
-        'callback': 'callback',
-        'Callback': 'callback',
-        'hot': 'connected',
-        'Hot': 'connected',
-        'cold': 'not_connected',
-        'Cold': 'not_connected',
-      },
-    };
-
-    // Function to map CSV values to valid backend enum values
-    const mapValue = (field: string, value: string): string => {
-      const fieldMapping = valueMapping[field];
-      if (fieldMapping && fieldMapping[value]) {
-        return fieldMapping[value];
-      }
-      return value;
-    };
-
-    Papa.parse(file, {
-      header: true,
-      dynamicTyping: false,
-      skipEmptyLines: true,
-      transformHeader: (h: string) => h.trim().toLowerCase(),
-      complete: async (results) => {
-        try {
-          console.log('CSV Data:', results.data);
-          
-          const leadsData = results.data
-            .filter((row: any) => {
-              // Check if row has either full_name OR name field
-              const fullName = row.full_name?.trim() || row.name?.trim() || row.fullname?.trim() || '';
-              const contactNumber = row.contact_number?.trim() || row.contact?.trim() || row.phone?.trim() || '';
-              return fullName.length > 0 && contactNumber.length > 0;
-            })
-            .map((row: any) => {
-              // Get values from various possible column names
-              const fullName = row.full_name?.trim() || row.name?.trim() || row.fullname?.trim() || '';
-              const contactNumber = row.contact_number?.trim() || row.contact?.trim() || row.phone?.trim() || '';
-              
-              // Get lead_type with mapping
-              let leadType = (row.lead_type?.trim() || row.type?.trim() || row.priority?.trim() || 'pending').toLowerCase();
-              leadType = mapValue('lead_type', leadType);
-              
-              // Get call_status with mapping
-              let callStatus = (row.call_status?.trim() || row.status?.trim() || 'pending').toLowerCase();
-              callStatus = mapValue('call_status', callStatus);
-              
-              // Get project_name - only trim, don't remove if empty
-              const projectName = row.project_name || row.project || '';
-              
-              return {
-                full_name: fullName,
-                contact_number: contactNumber,
-                lead_type: leadType as 'pending' | 'hot' | 'cold' | 'fake' | 'connected',
-                call_status: callStatus as 'pending' | 'connected' | 'not_connected' | 'callback',
-                project_name: projectName || undefined,
-              };
-            });
-
-          console.log('Processed Leads:', leadsData);
-          console.log('Leads count:', leadsData.length);
-
-          if (leadsData.length === 0) {
-            setImportError('No valid leads found in CSV. Please check that your CSV has columns: full_name (or name), contact_number (or contact or phone)');
-            return;
-          }
-
-          // Use createLead API for each row instead of batch import
-          let successCount = 0;
-          let failureCount = 0;
-          const failedLeads: string[] = [];
-
-          for (const lead of leadsData) {
-            try {
-              const leadPayload: any = {
-                full_name: lead.full_name,
-                contact_number: lead.contact_number,
-                lead_type: lead.lead_type,
-                call_status: lead.call_status,
-              };
-              
-              // Always include project_name if it exists in the data, even if empty
-              if (lead.project_name !== undefined) {
-                leadPayload.project_name = lead.project_name;
-              }
-              
-              await createLeadMutation.mutateAsync(leadPayload);
-              successCount++;
-            } catch (err: any) {
-              // Check if it's a duplicate error - those are acceptable
-              const errorMessage = err.response?.data?.error || err.message || '';
-              const isDuplicate = errorMessage.includes('already exists');
-              
-              if (!isDuplicate) {
-                failureCount++;
-                failedLeads.push(`${lead.full_name} (${lead.contact_number})`);
-              }
-              // Log duplicate errors silently - they're expected
-              console.log(`Lead already exists or skipped: ${lead.full_name} (${lead.contact_number})`);
-            }
-          }
-
-          if (successCount > 0) {
-            let message = `Successfully imported ${successCount} leads!`;
-            if (failureCount > 0) {
-              message += ` (${failureCount} failed: ${failedLeads.join(', ')})`;
-            }
-            setImportSuccess(message);
-            setTimeout(() => {
-              setImportSuccess('');
-              setActiveTab('list');
-            }, 3000);
-          } else {
-            setImportError(`Failed to import all leads. ${failedLeads.join(', ')}`);
-          }
-          
-          if (fileInputRef.current) {
-            fileInputRef.current.value = '';
-          }
-        } catch (err: any) {
-          console.error('Import error:', err);
-          setImportError(err.message || 'Failed to import leads');
-        }
-      },
-      error: (error: any) => {
-        console.error('Parse error:', error);
-        setImportError(`CSV parsing error: ${error.message}`);
-      },
-    });
+  const getCallStatusBadgeColor = (status: string) => {
+    switch(status) {
+      case 'connected':
+        return 'bg-green-100 text-green-800';
+      case 'not_connected':
+        return 'bg-red-100 text-red-800';
+      case 'callback':
+        return 'bg-orange-100 text-orange-800';
+      case 'completed':
+        return 'bg-purple-100 text-purple-800';
+      default:
+        return 'bg-yellow-100 text-yellow-800';
+    }
   };
 
+  // Filter function
+  const getFilteredLeads = () => {
+    let filtered = leads;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter((lead: any) =>
+        lead.full_name.toLowerCase().includes(query) ||
+        lead.contact_number.includes(query) ||
+        (lead.project_name && lead.project_name.toLowerCase().includes(query))
+      );
+    }
+
+    // Lead type filter
+    if (filterType !== 'all') {
+      filtered = filtered.filter((lead: any) => lead.lead_type === filterType);
+    }
+
+    // Call status filter
+    if (filterStatus !== 'all') {
+      filtered = filtered.filter((lead: any) => lead.call_status === filterStatus);
+    }
+
+    // Date filter
+    if (filterDate !== 'all') {
+      const now = new Date();
+      const leadDate = (lead: any) => new Date(lead.createdAt);
+
+      filtered = filtered.filter((lead: any) => {
+        const lDate = leadDate(lead);
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const leadDateOnly = new Date(lDate.getFullYear(), lDate.getMonth(), lDate.getDate());
+
+        switch (filterDate) {
+          case 'today':
+            return leadDateOnly.getTime() === today.getTime();
+          case 'yesterday':
+            const yesterday = new Date(today);
+            yesterday.setDate(yesterday.getDate() - 1);
+            return leadDateOnly.getTime() === yesterday.getTime();
+          case 'last_week':
+            const weekAgo = new Date(today);
+            weekAgo.setDate(weekAgo.getDate() - 7);
+            return leadDateOnly >= weekAgo && leadDateOnly <= today;
+          case 'last_month':
+            const monthAgo = new Date(today);
+            monthAgo.setMonth(monthAgo.getMonth() - 1);
+            return leadDateOnly >= monthAgo && leadDateOnly <= today;
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered;
+  };
+
+  const filteredLeads = getFilteredLeads();
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Lead Management</h1>
-          <p className="text-gray-600 mt-2">
-            Manage your real estate leads efficiently
-          </p>
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Page Title Section */}
+        <div className="mb-10">
+          <h1 className="text-5xl font-black bg-linear-to-r from-green-600 via-emerald-600 to-teal-600 bg-clip-text text-transparent">Lead Management</h1>
+          <p className="text-gray-600 mt-2 text-lg font-medium">Manage and track your real estate leads effortlessly</p>
         </div>
 
-        {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200">
-          <div className="flex space-x-8">
-            <button
-              onClick={() => setActiveTab('add')}
-              className={`pb-4 px-2 font-medium text-sm flex items-center gap-2 ${
-                activeTab === 'add'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <Plus className="h-4 w-4" />
-              Add Lead
-            </button>
-            <button
-              onClick={() => setActiveTab('import')}
-              className={`pb-4 px-2 font-medium text-sm flex items-center gap-2 ${
-                activeTab === 'import'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              <Upload className="h-4 w-4" />
-              Import CSV
-            </button>
-            <button
-              onClick={() => setActiveTab('list')}
-              className={`pb-4 px-2 font-medium text-sm ${
-                activeTab === 'list'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-gray-600 hover:text-gray-800'
-              }`}
-            >
-              All Leads ({leads?.length || 0})
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Content */}
-        {activeTab === 'add' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Create New Lead</h2>
-            <form onSubmit={handleCreateLead} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Full Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.full_name}
-                    onChange={(e) =>
-                      setFormData({ ...formData, full_name: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter lead name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Contact Number *
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    value={formData.contact_number}
-                    onChange={(e) =>
-                      setFormData({ ...formData, contact_number: e.target.value })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter contact number"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Lead Type *
-                  </label>
-                  <select
-                    required
-                    value={formData.lead_type}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        lead_type: e.target.value as any,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="hot">Hot</option>
-                    <option value="cold">Cold</option>
-                    <option value="fake">Fake</option>
-                    <option value="connected">Connected</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Call Status *
-                  </label>
-                  <select
-                    required
-                    value={formData.call_status}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        call_status: e.target.value as any,
-                      })
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="connected">Connected</option>
-                    <option value="not_connected">Not Connected</option>
-                    <option value="callback">Callback</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Project Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.project_name}
-                  onChange={(e) =>
-                    setFormData({ ...formData, project_name: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="Enter project name"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={createLeadMutation.isPending}
-                className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                {createLeadMutation.isPending ? 'Creating...' : 'Create Lead'}
-              </button>
-              {createLeadMutation.isError && (
-                <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                  {(createLeadMutation.error as any)?.response?.data?.error || 
-                   (createLeadMutation.error as any)?.message || 
-                   'Failed to create lead'}
-                </div>
-              )}
-            </form>
-          </div>
-        )}
-
-        {activeTab === 'import' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-semibold mb-4">Import Leads from CSV</h2>
-            
-            {importError && (
-              <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                {importError}
-              </div>
-            )}
-
-            {importSuccess && (
-              <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
-                {importSuccess}
-              </div>
-            )}
-
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                CSV File Format Requirements:
-              </label>
-              <div className="bg-gray-50 p-4 rounded-lg text-sm text-gray-600 space-y-3">
-                <div>
-                  <p className="font-semibold text-gray-800">Required Columns:</p>
-                  <p>• Name: <code className="bg-gray-200 px-2 py-1">full_name</code> OR <code className="bg-gray-200 px-2 py-1">name</code></p>
-                  <p>• Contact: <code className="bg-gray-200 px-2 py-1">contact_number</code> OR <code className="bg-gray-200 px-2 py-1">phone</code></p>
-                </div>
-                
-                <div>
-                  <p className="font-semibold text-gray-800">Optional Columns:</p>
-                  <p>• Lead Type: <code className="bg-gray-200 px-2 py-1">lead_type</code> or <code className="bg-gray-200 px-2 py-1">priority</code></p>
-                  <p className="text-xs ml-4">Valid values: pending, hot, cold, fake, connected (or high→hot, medium→connected, low→cold)</p>
-                  <p>• Call Status: <code className="bg-gray-200 px-2 py-1">call_status</code> or <code className="bg-gray-200 px-2 py-1">status</code></p>
-                  <p className="text-xs ml-4">Valid values: pending, connected, not_connected, callback (or new→pending, hot→connected, cold→not_connected)</p>
-                  <p>• Project: <code className="bg-gray-200 px-2 py-1">project_name</code> or <code className="bg-gray-200 px-2 py-1">project</code></p>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600 mb-4">Upload your CSV file to import leads</p>
+        {/* Search and Filter Section */}
+        <div className="mb-8 px-0 py-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Search Bar */}
+            <div className="lg:col-span-2">
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Search</label>
               <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv"
-                onChange={handleCSVImport}
-                disabled={createLeadMutation.isPending}
-                className="hidden"
+                type="text"
+                placeholder="Search by name, phone, or project..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
               />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={createLeadMutation.isPending}
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
-              >
-                {createLeadMutation.isPending ? 'Importing...' : 'Select CSV File'}
-              </button>
             </div>
 
-            {createLeadMutation.isError && (
-              <div className="mt-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-                Error: {(createLeadMutation.error as any)?.message || 'Failed to import leads'}
-              </div>
-            )}
+            {/* Lead Type Filter */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Lead Type</label>
+              <select
+                value={filterType}
+                onChange={(e) => setFilterType(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+              >
+                <option value="all">All Types</option>
+                <option value="hot">Hot</option>
+                <option value="cold">Cold</option>
+                <option value="fake">Fake</option>
+                <option value="connected">Connected</option>
+              </select>
+            </div>
+
+            {/* Call Status Filter */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Call Status</label>
+              <select
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+              >
+                <option value="all">All Status</option>
+                <option value="pending">Pending</option>
+                <option value="connected">Connected</option>
+                <option value="not_connected">Not Connected</option>
+                <option value="callback">Callback</option>
+                <option value="completed">Completed</option>
+              </select>
+            </div>
+
+            {/* Date Filter */}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Date Range</label>
+              <select
+                value={filterDate}
+                onChange={(e) => setFilterDate(e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="last_week">Last 7 Days</option>
+                <option value="last_month">Last 30 Days</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Results Count */}
+          {/* <div className="mt-4 text-sm text-gray-600">
+            Showing <span className="font-bold text-green-600">{filteredLeads.length}</span> lead{filteredLeads.length !== 1 ? 's' : ''} 
+            {searchQuery || filterType !== 'all' || filterStatus !== 'all' || filterDate !== 'all' ? ' (filtered)' : ''}
+          </div> */}
+        </div>
+
+        {/* Alert Messages */}
+        {callError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-3 shadow-sm">
+            <span className="text-2xl">⚠️</span>
+            <span className="font-medium">{callError}</span>
           </div>
         )}
 
-        {activeTab === 'list' && (
-          <div className="bg-white rounded-lg shadow">
-            {callError && (
-              <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-t">
-                {callError}
-              </div>
-            )}
+        {callSuccess && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl flex items-start gap-3 shadow-sm">
+            <span className="text-2xl">✓</span>
+            <span className="font-medium">{callSuccess}</span>
+          </div>
+        )}
 
-            {callSuccess && (
-              <div className="p-4 bg-green-100 border border-green-400 text-green-700 rounded-t">
-                {callSuccess}
-              </div>
-            )}
+        {deleteError && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-3 shadow-sm">
+            <span className="text-2xl">⚠️</span>
+            <span className="font-medium">{deleteError}</span>
+          </div>
+        )}
 
-            {deleteError && (
-              <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-t">
-                {deleteError}
-              </div>
-            )}
+        {deleteSuccess && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl flex items-start gap-3 shadow-sm">
+            <span className="text-2xl">✓</span>
+            <span className="font-medium">{deleteSuccess}</span>
+          </div>
+        )}
 
-            {deleteSuccess && (
-              <div className="p-4 bg-green-100 border border-green-400 text-green-700 rounded-t">
-                {deleteSuccess}
-              </div>
-            )}
-
+        {/* Main Content Card */}
+        <div className="bg-white rounded-3xl shadow-lg overflow-hidden border border-green-100">
+          {/* Table Container */}
+          <div className="overflow-x-auto">
             {leadsLoading && (
-              <div className="p-8 text-center text-gray-600">
-                <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <p className="mt-2">Loading leads...</p>
+              <div className="p-12 text-center text-gray-500">
+                <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-green-600 border-t-transparent"></div>
+                <p className="mt-4 text-lg">Loading leads...</p>
               </div>
             )}
 
             {!leadsLoading && (!leads || leads.length === 0) && (
-              <div className="p-8 text-center text-gray-600">
-                <p>No leads found. Create your first lead!</p>
+              <div className="p-12 text-center text-gray-500">
+                <p className="text-2xl font-semibold text-gray-700 mb-2">No leads found</p>
+                <p className="text-base">Create your first lead to get started</p>
               </div>
             )}
 
-            {!leadsLoading && leads && leads.length > 0 && (
-              <div className="overflow-x-auto">
+            {!leadsLoading && leads && leads.length > 0 && filteredLeads.length === 0 && (
+              <div className="p-12 text-center text-gray-500">
+                <p className="text-2xl font-semibold text-gray-700 mb-2">No leads match your filters</p>
+                <p className="text-base">Try adjusting your search or filter criteria</p>
+              </div>
+            )}
+
+            {!leadsLoading && filteredLeads && filteredLeads.length > 0 && (
+              <>
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Full Name
+                  <thead>
+                    <tr className="bg-linear-to-r from-[#34DB17] to-[#306B25] border-b border-green-200">
+                      <th className="px-6 py-5 text-left text-sm font-bold text-white uppercase tracking-wider">
+                        Name
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                      <th className="px-6 py-5 text-left text-sm font-bold text-white uppercase tracking-wider">
                         Contact
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Lead Type
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Call Status
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
+                      <th className="px-6 py-5 text-left text-sm font-bold text-white uppercase tracking-wider">
                         Project
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Created
+                      <th className="px-6 py-5 text-left text-sm font-bold text-white uppercase tracking-wider">
+                        Lead Type
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-700 uppercase">
-                        Action
+                      <th className="px-6 py-5 text-left text-sm font-bold text-white uppercase tracking-wider">
+                        Call Status
+                      </th>
+                      <th className="px-6 py-5 text-center text-sm font-bold text-white uppercase tracking-wider">
+                        Actions
                       </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {leads.map((lead: any) => (
-                      <tr key={lead._id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 text-sm text-gray-900">
+                    {filteredLeads.map((lead: any) => (
+                      <tr key={lead._id} className="hover:bg-green-50 transition-all duration-300">
+                        <td className="px-6 py-5 text-sm font-semibold text-gray-900">
                           {lead.full_name}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {lead.contact_number}
+                        <td className="px-6 py-5 text-sm text-gray-600">
+                          <a href={`tel:${lead.contact_number}`} className="text-green-600 hover:text-green-700 hover:underline font-medium transition-colors">
+                            {lead.contact_number}
+                          </a>
                         </td>
-                        <td className="px-6 py-4 text-sm">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {lead.lead_type}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm">
-                          <span
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              lead.call_status === 'connected'
-                                ? 'bg-green-100 text-green-800'
-                                : lead.call_status === 'not_connected'
-                                  ? 'bg-red-100 text-red-800'
-                                  : lead.call_status === 'callback'
-                                    ? 'bg-yellow-100 text-yellow-800'
-                                    : 'bg-gray-100 text-gray-800'
-                            }`}
-                          >
-                            {lead.call_status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
+                        <td className="px-6 py-5 text-sm text-gray-600">
                           {lead.project_name || '-'}
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-600">
-                          {new Date(lead.created_at).toLocaleDateString()}
+                        <td className="px-6 py-5 text-sm">
+                          <span className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-bold transition-all ${getLeadTypeBadgeColor(lead.lead_type)}`}>
+                            {lead.lead_type.charAt(0).toUpperCase() + lead.lead_type.slice(1)}
+                          </span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-center">
-                          <div className="flex items-center justify-start gap-2">
+                        <td className="px-6 py-5 text-sm">
+                          <span className={`inline-flex items-center px-4 py-2 rounded-full text-xs font-bold transition-all ${getCallStatusBadgeColor(lead.call_status)}`}>
+                            {lead.call_status.replace('_', ' ').charAt(0).toUpperCase() + lead.call_status.replace('_', ' ').slice(1)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-5 text-sm">
+                          <div className="flex items-center justify-center gap-3">
                             <button
-                              onClick={() => {
-                                setEditingLeadId(lead._id);
-                                setEditingLead(lead);
-                              }}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                              title="Edit Lead"
+                              onClick={() => router.push(`/edit-lead/${lead._id}`)}
+                              className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg transition-all duration-200"
+                              title="View & Edit Lead"
                             >
-                              <Edit className="h-4 w-4" />
+                              <Eye className="h-5 w-5" />
                             </button>
-                            {getLeadRecordings(lead._id).length > 0 ? (
-                              <button
-                                onClick={() => handleViewRecordings(lead._id, lead.full_name)}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title={`View ${getLeadRecordings(lead._id).length} Recording(s)`}
-                              >
-                                <Play className="h-4 w-4 fill-current" />
-                              </button>
-                            ) : lead.call_status === 'completed' ? null : (
+                            {lead.call_status === 'pending' ? (
                               <button
                                 onClick={() => handleCallLead(lead._id)}
                                 disabled={callMutation.isPending}
-                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                                className="p-2 text-blue-500 hover:bg-blue-100 rounded-lg transition-all duration-200 disabled:opacity-50 animate-pulse"
                                 title="Call Lead"
                               >
-                                <Phone className="h-4 w-4" />
+                                <Phone className="h-5 w-5" />
+                              </button>
+                            ) : lead.call_status === 'completed' && getLeadRecordings(lead._id).length > 0 ? (
+                              <button
+                                onClick={() => handleViewRecordings(lead._id, lead.full_name)}
+                                className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-all duration-200"
+                                title={`View ${getLeadRecordings(lead._id).length} Recording(s)`}
+                              >
+                                <Play className="h-5 w-5 fill-current" />
+                              </button>
+                            ) : lead.call_status === 'completed' ? (
+                              <button
+                                onClick={() => handleViewSiteVisits(lead._id, lead.full_name, lead)}
+                                className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-all duration-200"
+                                title="Schedule Site Visit"
+                              >
+                                <Calendar className="h-5 w-5" />
+                              </button>
+                            ) : (
+                              <button
+                                disabled
+                                className="p-2 text-gray-300 cursor-not-allowed rounded-lg"
+                                title="Available after call completion"
+                              >
+                                <Calendar className="h-5 w-5" />
                               </button>
                             )}
                             <button
-                              onClick={() => handleViewSiteVisits(lead._id, lead.full_name, lead)}
-                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                              title="Site Visits"
-                            >
-                              <Calendar className="h-4 w-4" />
-                            </button>
-                            <button
                               onClick={() => handleDeleteLead(lead._id)}
                               disabled={deleteLeadMutation.isPending}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                              className="p-2 text-red-500 hover:bg-red-100 rounded-lg transition-all duration-200 disabled:opacity-50"
                               title="Delete Lead"
                             >
-                              <Trash2 className="h-4 w-4" />
+                              <Trash2 className="h-5 w-5" />
                             </button>
                           </div>
                         </td>
@@ -693,27 +440,18 @@ export default function LeadsPage() {
                     ))}
                   </tbody>
                 </table>
-              </div>
+
+                {/* Pagination Info */}
+                <div className="px-8 py-5 border-t border-green-100 bg-linear-to-r from-green-50 to-emerald-50">
+                  <p className="text-sm font-semibold text-gray-700">
+                    📊 Showing <span className="text-green-600 font-bold">1-{Math.min(filteredLeads.length, 10)}</span> from <span className="text-green-600 font-bold">{filteredLeads.length}</span> leads
+                  </p>
+                </div>
+              </>
             )}
           </div>
-        )}
+        </div>
       </div>
-
-      {/* Edit Lead Modal */}
-      <EditLeadModal
-        leadId={editingLeadId || ''}
-        isOpen={!!editingLeadId}
-        lead={editingLead}
-        onClose={() => {
-          setEditingLeadId(null);
-          setEditingLead(null);
-        }}
-        onSuccess={() => {
-          setDeleteSuccess('Lead updated successfully!');
-          setTimeout(() => setDeleteSuccess(''), 3000);
-          refetchLeads();
-        }}
-      />
 
       {/* Recording Modal */}
       {selectedRecording && (
@@ -726,7 +464,6 @@ export default function LeadsPage() {
             <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full mx-4 p-6 max-h-[90vh] overflow-y-auto">
               <h3 className="text-xl font-semibold mb-4">{selectedRecording.callerName || 'Call Recording'}</h3>
               
-              {/* Audio Player */}
               <div className="bg-gray-50 rounded-lg p-4 mb-4">
                 <audio
                   controls
@@ -748,18 +485,11 @@ export default function LeadsPage() {
               {/* Transcript Section */}
               {(() => {
                 const hasTranscript = selectedRecording.executionDetails?.transcript;
-                console.log('🎤 Checking transcript:', {
-                  hasExecutionDetails: !!selectedRecording.executionDetails,
-                  transcript: selectedRecording.executionDetails?.transcript,
-                  hasTranscript
-                });
                 
                 if (!hasTranscript) {
-                  console.log('❌ No transcript found');
                   return null;
                 }
                 
-                console.log('✅ Rendering transcript');
                 return (
                   <div className="mb-6 border-t pt-4">
                     <h4 className="font-semibold text-gray-900 mb-3">Transcript</h4>

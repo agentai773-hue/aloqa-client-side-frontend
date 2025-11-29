@@ -12,6 +12,7 @@ export const siteVisitAPI = {
     visitDate: string;
     visitTime: string;
     projectName: string;
+    siteExecutiveId?: string;
     address?: string;
     notes?: string;
     status?: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled';
@@ -51,6 +52,7 @@ export const siteVisitAPI = {
       visitDate?: string;
       visitTime?: string;
       projectName?: string;
+      siteExecutiveId?: string;
       address?: string;
       notes?: string;
       status?: 'scheduled' | 'completed' | 'cancelled' | 'rescheduled';
