@@ -30,9 +30,11 @@ axiosInstance.interceptors.response.use(
   (error) => {
     // Extract error message from API response if available
     if (error.response?.data?.message) {
-      error.message = error.response.data.message;
+      const errorMessage = error.response.data.message;
+      error.message = errorMessage;
     } else if (error.response?.data?.error) {
-      error.message = error.response.data.error;
+      const errorMessage = error.response.data.error;
+      error.message = errorMessage;
     }
     
     // Handle 401 errors - token might be expired
