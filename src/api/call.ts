@@ -108,6 +108,37 @@ export async function initiateCustomCall(
 }
 
 /**
+ * Get all call history for logged-in user with optional filters
+ * @param page - Page number (default: 1)
+ * @param pageSize - Records per page (default: 10)
+ * @param status - Status filter ('all' or specific status)
+ * @param assistantId - Assistant ID filter ('all' or specific assistant ID)
+ * @returns Response with call history records and pagination
+ */
+export async function getCallHistoryWithFilters(
+  page: number = 1,
+  pageSize: number = 10,
+  status: string = 'all',
+  assistantId: string = 'all'
+): Promise<CallHistoryResponse> {
+  try {
+    const response = await axiosInstance.get<CallHistoryResponse>(
+      '/client-call/call-history',
+      {
+        params: { page, pageSize, status, assistantId }
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error fetching call history with filters:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to fetch call history'
+    };
+  }
+}
+
+/**
  * Get all call history for logged-in user
  * @param page - Page number (default: 1)
  * @param pageSize - Records per page (default: 10)
@@ -193,6 +224,43 @@ export async function getCallDetails(
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to fetch call details'
+    };
+  }
+}
+
+/**
+ * Search call history by callerName, recipientPhoneNumber, or projectName with optional filters
+ * @param searchTerm - The search term to filter by (name, phone, or project)
+ * @param page - Page number (default: 1)
+ * @param pageSize - Records per page (default: 10)
+ * @param status - Status filter ('all' or specific status)
+ * @param assistantId - Assistant ID filter ('all' or specific assistant ID)
+ * @returns Response with filtered call history records and pagination
+ */
+export async function searchCallHistory(
+  searchTerm: string,
+  page: number = 1,
+  pageSize: number = 10,
+  status: string = 'all',
+  assistantId: string = 'all'
+): Promise<CallHistoryResponse> {
+  try {
+    const response = await axiosInstance.post<CallHistoryResponse>(
+      '/client-call/call-history/search',
+      { 
+        searchTerm: searchTerm.trim(), 
+        page, 
+        pageSize,
+        status,
+        assistantId
+      }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error('Error searching call history:', error);
+    return {
+      success: false,
+      message: error.response?.data?.message || error.message || 'Failed to search call history'
     };
   }
 }

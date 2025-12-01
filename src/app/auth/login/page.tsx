@@ -14,10 +14,33 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
   const [localError, setLocalError] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+
+  // Load form data from localStorage on mount
+  useEffect(() => {
+    setIsClient(true);
+    const savedFormData = localStorage.getItem("loginFormData");
+    if (savedFormData) {
+      try {
+        setFormData(JSON.parse(savedFormData));
+      } catch (err) {
+        console.error("Failed to parse saved form data:", err);
+      }
+    }
+  }, []);
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    if (isClient) {
+      localStorage.setItem("loginFormData", JSON.stringify(formData));
+    }
+  }, [formData, isClient]);
 
   // Redirect after login (smooth, no page refresh)
   useEffect(() => {
     if (isAuthenticated) {
+      // Clear saved form data on successful login
+      localStorage.removeItem("loginFormData");
       router.replace("/");
     }
   }, [isAuthenticated, router]);
