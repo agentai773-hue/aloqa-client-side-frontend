@@ -11,11 +11,17 @@ const axiosInstance = axios.create({
   },
 });
 
-// Add token from cookies to requests
+// Add token from cookies or localStorage to requests
 axiosInstance.interceptors.request.use(
   (config) => {
-    // Try to get token from cookies
+    // Try to get token from cookies first (httpOnly from backend)
     let token = Cookies.get('token');
+    
+    // If not in cookies, try localStorage (for app startup verification)
+    if (!token && typeof window !== 'undefined') {
+      token = localStorage.getItem('token') || undefined;
+    }
+    
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -70,21 +76,42 @@ export interface LoginResponse {
 export async function loginUser(data: LoginRequest): Promise<LoginResponse> {
   const response = await axiosInstance.post('/client-auth/login', data);
   
-  // Manually set token in cookies for live environment
-  // Some browsers/environments require explicit cookie setting
+  // Backend will set httpOnly cookie automatically
+  // Store token in localStorage so we can verify on page refresh
   if (response.data.token) {
-    Cookies.set('token', response.data.token, {
-      expires: 10, // 10 days
-      path: '/',
-    });
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('token', response.data.token);
+      console.log('✅ Token saved to localStorage for persistence');
+    }
   }
   
   return response.data;
 }
 
 export async function verifyToken(): Promise<{ token: string; user: User }> {
-  const response = await axiosInstance.post('/client-auth/verify', {});
-  return response.data;
+  try {
+    const response = await axiosInstance.post('/client-auth/verify', {});
+    
+    // If backend returns a token, save to localStorage
+    if (response.data.token) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('token', response.data.token);
+      }
+      console.log('✅ Token verified and saved');
+    }
+    
+    return response.data;
+  } catch (error: any) {
+    // If token is invalid or expired, remove it
+    if (error.response?.status === 401) {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+      }
+      Cookies.remove('token');
+      console.log('❌ Token removed - verification failed');
+    }
+    throw error;
+  }
 }
 
 export default axiosInstance;

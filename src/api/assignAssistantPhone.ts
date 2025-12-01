@@ -51,7 +51,6 @@ export async function assignAssistantPhone(
     );
     return response.data;
   } catch (error) {
-    console.error("Error assigning assistant and phone:", error);
     throw error;
   }
 }
@@ -66,7 +65,6 @@ export async function getAllAssignments(): Promise<AssignAssistantPhoneResponse>
     );
     return response.data;
   } catch (error) {
-    console.error("Error fetching assignments:", error);
     throw error;
   }
 }
@@ -84,7 +82,6 @@ export async function getAssignmentsByProject(
     );
     return response.data;
   } catch (error) {
-    console.error("Error fetching assignments by project:", error);
     throw error;
   }
 }
@@ -101,7 +98,6 @@ export async function getAssignmentById(
     );
     return response.data;
   } catch (error) {
-    console.error("Error fetching assignment:", error);
     throw error;
   }
 }
@@ -118,7 +114,6 @@ export async function unassignAssistantPhone(
     );
     return response.data;
   } catch (error) {
-    console.error("Error unassigning assistant and phone:", error);
     throw error;
   }
 }
@@ -133,7 +128,6 @@ export async function getProjectsList(): Promise<AssignAssistantPhoneResponse> {
     );
     return response.data;
   } catch (error) {
-    console.error("Error fetching projects list:", error);
     throw error;
   }
 }

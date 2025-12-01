@@ -10,18 +10,18 @@ export default function Header() {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const router = useRouter();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
     setShowUserMenu(false);
-    
+
     // Clear auth state
     logout();
-    
+
     // Clear cookies
     Cookies.remove('token');
-    
+
     // Redirect to login
     router.replace("/auth/login");
   };
@@ -31,9 +31,14 @@ export default function Header() {
       <div className="flex items-center justify-between px-6 py-5">
         {/* Logo/Brand */}
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-linear-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-            <Phone className="w-6 h-6 text-white" />
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+            <img
+              src="/inner-logo.svg"
+              alt="Inner Logo"
+              className="w-6 h-6"
+            />
           </div>
+
           <div>
             <h1 className="text-lg font-bold text-gray-900">Aloqa AI</h1>
             <p className="text-xs text-gray-500">Client Calling Portal</p>
@@ -43,22 +48,22 @@ export default function Header() {
         {/* Right section */}
         <div className="flex items-center gap-4">
           {/* Notifications */}
-          <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+          {/* <button className="relative p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
             <Bell className="h-6 w-6" />
             <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-          </button>
+          </button> */}
 
           {/* Profile */}
           <div className="relative">
-            <button 
+            <button
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <div className="w-8 h-8 rounded-full bg-linear-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full bg-linear-to-br from-[#34DB17] to-[#306B25] flex items-center justify-center">
                 <User className="h-5 w-5 text-white" />
               </div>
               <span className="text-sm font-medium text-gray-700 hidden sm:block">
-                Agent
+                {user?.firstName} {user?.lastName}
               </span>
             </button>
 

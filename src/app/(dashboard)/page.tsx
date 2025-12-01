@@ -1,35 +1,46 @@
 "use client";
 
 import { 
-  Phone, 
-  PhoneCall, 
-  PhoneOff, 
   Clock, 
   CheckCircle2,
   Users,
+  Activity,
+  PhoneCall,
 } from "lucide-react";
-import { useState } from "react";
-import { useLeads } from "@/hooks/useLeads";
-import { useAssistants } from "@/hooks/useAssistants";
-import { useCallHistory } from "@/hooks/useInitiateCall";
+import { useState, useEffect } from "react";
+import { useDashboard, useRefreshDashboard } from "@/hooks/useDashboard";
+import { DashboardStats } from "@/api/dashboard-api";
 
 export default function DashboardPage() {
   const [callStatus, setCallStatus] = useState<"idle" | "calling" | "connected">("idle");
   
-  // Fetch leads
-  const { data: leadsData = [] } = useLeads();
-  const leads = Array.isArray(leadsData) ? leadsData : [];
-  const totalLeads = leads.length;
+  // Fetch dashboard statistics
+  const { data: dashboardData, isLoading: isDashboardLoading, error: dashboardError } = useDashboard();
+  const { refreshDashboard } = useRefreshDashboard();
 
-  // Fetch assistants
-  const { data: assistantsData } = useAssistants();
-  const assistants = assistantsData?.data || [];
-  const activeBots = assistants.length;
+  // Extract data from dashboard API response with proper typing
+  const dashStats = dashboardData as DashboardStats | undefined;
+  
+  // Leads data
+  const totalLeads = dashStats?.leads?.total || 0;
+  const leadsByType = dashStats?.leads?.byType || {};
+  const leadsByStatus = dashStats?.leads?.byCallStatus || {};
 
-  // Fetch call history
-  const { data: callHistoryData } = useCallHistory(1, 1000);
-  const callHistory = Array.isArray(callHistoryData?.data) ? callHistoryData.data : [];
-  const totalCalls = callHistory.length;
+  // Call history data
+  const totalCalls = dashStats?.callHistory?.total || 0;
+  const successfulCalls = dashStats?.callHistory?.successful || 0;
+  const successRate = dashStats?.callHistory?.successRate || 0;
+  const callsByStatus = dashStats?.callHistory?.byStatus || {};
+
+  // Assistants data
+  const totalAssistants = dashStats?.assistants?.total || 0;
+  const activeAssistants = dashStats?.assistants?.active || 0;
+  const inactiveAssistants = dashStats?.assistants?.inactive || 0;
+
+  // Call duration data
+  const totalMinutes = dashStats?.callDuration?.totalMinutes || 0;
+  const remainingSeconds = dashStats?.callDuration?.remainingSeconds || 0;
+  const formattedDuration = dashStats?.callDuration?.formatted || "0:00";
 
   const startCall = () => {
     setCallStatus("calling");
@@ -40,8 +51,17 @@ export default function DashboardPage() {
     setCallStatus("idle");
   };
 
+  // Auto-refresh dashboard data every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refreshDashboard();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [refreshDashboard]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6 space-y-6">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 p-6 space-y-6">
       <style>{`
         @keyframes slideInUp {
           from {
@@ -103,12 +123,12 @@ export default function DashboardPage() {
       <div className="max-w-7xl mx-auto w-full space-y-6">
         {/* Page Header */}
         <div className="page-header">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-[#34DB17] to-[#306B25] bg-clip-text text-transparent">Client Calling Dashboard</h1>
+          <h1 className="text-4xl font-bold bg-linear-to-r from-[#34DB17] to-[#306B25] bg-clip-text text-transparent">Client Calling Dashboard</h1>
           <p className="text-gray-600 mt-2 text-lg">Real Estate Client Management System</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {/* Total Leads */}
           <div className="stat-card card-gradient p-6 rounded-2xl card-hover transition-all duration-300 cursor-pointer shadow-sm">
             <div className="flex items-center justify-between">
@@ -116,13 +136,18 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Leads</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{totalLeads}</p>
               </div>
-              <div className="w-14 h-14 bg-gradient-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-14 h-14 bg-linear-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
                 <PhoneCall className="w-7 h-7 text-white" />
               </div>
             </div>
-            <p className="text-sm text-[#34DB17] mt-4 flex items-center gap-1 font-semibold">
-              <span>↑ 12%</span>
-              <span className="text-gray-500 font-normal">from yesterday</span>
+            <p className="text-sm text-gray-600 mt-4 flex items-center gap-1 font-medium">
+              <span className="text-[#34DB17]">
+                {leadsByType?.hot || 0} hot
+              </span>
+              <span className="text-gray-400">|</span>
+              <span className="text-[#34DB17]">
+                {leadsByType?.cold || 0} cold
+              </span>
             </p>
           </div>
 
@@ -133,12 +158,12 @@ export default function DashboardPage() {
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Calls</p>
                 <p className="text-3xl font-bold text-gray-900 mt-2">{totalCalls}</p>
               </div>
-              <div className="w-14 h-14 bg-gradient-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-14 h-14 bg-linear-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
                 <CheckCircle2 className="w-7 h-7 text-white" />
               </div>
             </div>
             <p className="text-sm text-[#34DB17] mt-4 flex items-center gap-1 font-semibold">
-              <span>66.7%</span>
+              <span>{successRate.toFixed(1)}%</span>
               <span className="text-gray-500 font-normal">success rate</span>
             </p>
           </div>
@@ -148,15 +173,15 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Active Bot</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">{activeBots}</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{activeAssistants}</p>
               </div>
-              <div className="w-14 h-14 bg-gradient-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-14 h-14 bg-linear-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
                 <Users className="w-7 h-7 text-white" />
               </div>
             </div>
             <p className="text-sm text-[#34DB17] mt-4 font-semibold">
-              <span>23</span>
-              <span className="text-gray-500 font-normal"> new this week</span>
+              <span>{totalAssistants}</span>
+              <span className="text-gray-500 font-normal"> total assistants</span>
             </p>
           </div>
 
@@ -165,27 +190,27 @@ export default function DashboardPage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Total Minutes</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">8:45</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{formattedDuration}</p>
               </div>
-              <div className="w-14 h-14 bg-gradient-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-14 h-14 bg-linear-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
                 <Clock className="w-7 h-7 text-white" />
               </div>
             </div>
             <p className="text-sm text-gray-600 mt-4 font-medium">minutes used</p>
           </div>
 
-          {/* Remaining Minutes */}
+          {/* Successful Calls */}
           <div className="stat-card card-gradient p-6 rounded-2xl card-hover transition-all duration-300 cursor-pointer shadow-sm">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Remaining</p>
-                <p className="text-3xl font-bold text-gray-900 mt-2">2040</p>
+                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider">Successful</p>
+                <p className="text-3xl font-bold text-gray-900 mt-2">{successfulCalls}</p>
               </div>
-              <div className="w-14 h-14 bg-gradient-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
-                <Clock className="w-7 h-7 text-white" />
+              <div className="w-14 h-14 bg-linear-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center shadow-lg">
+                <Activity className="w-7 h-7 text-white" />
               </div>
             </div>
-            <p className="text-sm text-gray-600 mt-4 font-medium">minutes left</p>
+            <p className="text-sm text-gray-600 mt-4 font-medium">completed calls</p>
           </div>
         </div>
 

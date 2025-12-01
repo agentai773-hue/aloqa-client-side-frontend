@@ -10,8 +10,8 @@ import {
   TrendingUp,
   TrendingDown,
 } from "lucide-react";
-import { useLeads } from "@/hooks/useLeads";
-import { useAllSiteVisits } from "@/hooks/useSiteVisits";
+import { useLeadsDashboard, useRefreshLeadsDashboard } from "@/hooks/useLeadsDashboard";
+import { LeadsDashboardStats } from "@/api/lead-dashboard-api";
 
 interface StatCard {
   title: string;
@@ -28,12 +28,11 @@ export default function LeadDashboardPage() {
   const [mounted, setMounted] = useState(false);
   const [statsData, setStatsData] = useState<StatCard[]>([]);
 
-  // Fetch leads data
-  const { data: leadsData = [] } = useLeads();
-  const leads = Array.isArray(leadsData) ? leadsData : [];
+  // Fetch leads dashboard data (includes summary, breakdown, leads list, and site visits count)
+  const { data: dashboardData, isLoading, error } = useLeadsDashboard();
+  const { refetchDashboard } = useRefreshLeadsDashboard();
 
-  // Fetch site visits data
-  const { siteVisits = [] } = useAllSiteVisits();
+  const stats = dashboardData as LeadsDashboardStats | undefined;
 
   useEffect(() => {
     setMounted(true);
@@ -41,20 +40,15 @@ export default function LeadDashboardPage() {
 
   // Calculate lead counts by status
   useEffect(() => {
-    if (mounted && leads.length > 0) {
-      const totalLeads = leads.length;
-      const connectedLeads = leads.filter((lead) => lead.lead_type === "connected").length;
-      const pendingLeads = leads.filter((lead) => lead.lead_type === "pending").length;
-      const hotLeads = leads.filter((lead) => lead.lead_type === "hot").length;
-      const fakeLeads = leads.filter((lead) => lead.lead_type === "fake").length;
-      const coldLeads = leads.filter((lead) => lead.lead_type === "cold").length;
-      const totalSiteVisits = siteVisits.length;
+    if (mounted && stats && stats.leads.length > 0) {
+      const summary = stats.summary;
+      const breakdown = stats.breakdown;
 
       const newStatsData: StatCard[] = [
         {
           title: "Total Lead",
-          value: totalLeads.toString(),
-          trend: "8.5% Up from yesterday",
+          value: summary.totalLeads.toString(),
+          trend: `${summary.recentLeads} new leads`,
           trendType: "up",
           icon: <Users className="w-6 h-6" />,
           bgColor: "#E5F4F5",
@@ -63,8 +57,8 @@ export default function LeadDashboardPage() {
         },
         {
           title: "Connected Leads",
-          value: connectedLeads.toString(),
-          trend: "1.3% Up from past week",
+          value: breakdown.byType.connected.toString(),
+          trend: "Quality leads",
           trendType: "up",
           icon: <CheckCircle className="w-6 h-6" />,
           bgColor: "#FFF8E8",
@@ -73,8 +67,8 @@ export default function LeadDashboardPage() {
         },
         {
           title: "Pending Leads",
-          value: pendingLeads.toString(),
-          trend: "4.3% Down from yesterday",
+          value: summary.pendingLeads.toString(),
+          trend: "Awaiting follow-up",
           trendType: "down",
           icon: <Clock className="w-6 h-6" />,
           bgColor: "#EDFFED",
@@ -83,8 +77,8 @@ export default function LeadDashboardPage() {
         },
         {
           title: "Hot Leads",
-          value: hotLeads.toString(),
-          trend: "1.8% Up from yesterday",
+          value: breakdown.byType.hot.toString(),
+          trend: "High priority",
           trendType: "up",
           icon: <AlertCircle className="w-6 h-6" />,
           bgColor: "#FFF1FC",
@@ -93,8 +87,8 @@ export default function LeadDashboardPage() {
         },
         {
           title: "Fake Leads",
-          value: fakeLeads.toString(),
-          trend: "1.8% Up from yesterday",
+          value: breakdown.byType.fake.toString(),
+          trend: "To be verified",
           trendType: "up",
           icon: <AlertCircle className="w-6 h-6" />,
           bgColor: "#FFE9E9",
@@ -103,8 +97,8 @@ export default function LeadDashboardPage() {
         },
         {
           title: "Cold Leads",
-          value: coldLeads.toString(),
-          trend: "1.8% Up from yesterday",
+          value: breakdown.byType.cold.toString(),
+          trend: "Need nurturing",
           trendType: "up",
           icon: <Eye className="w-6 h-6" />,
           bgColor: "#FFF4F0",
@@ -113,8 +107,8 @@ export default function LeadDashboardPage() {
         },
         {
           title: "Site Visit",
-          value: totalSiteVisits.toString(),
-          trend: "1.8% Up from yesterday",
+          value: summary.totalSiteVisits.toString(),
+          trend: "Property visits",
           trendType: "up",
           icon: <Eye className="w-6 h-6" />,
           bgColor: "#F1F1FF",
@@ -123,8 +117,8 @@ export default function LeadDashboardPage() {
         },
         {
           title: "Converted Leads",
-          value: "2040",
-          trend: "1.8% Up from yesterday",
+          value: summary.convertedLeads.toString(),
+          trend: `${summary.conversionRate}% conversion rate`,
           trendType: "up",
           icon: <CheckCircle className="w-6 h-6" />,
           bgColor: "#ECFFF5",
@@ -135,7 +129,7 @@ export default function LeadDashboardPage() {
 
       setStatsData(newStatsData);
     }
-  }, [mounted, leads, siteVisits]);
+  }, [mounted, stats]);
 
   if (!mounted) {
     return null;
