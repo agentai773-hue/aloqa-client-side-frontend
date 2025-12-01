@@ -95,3 +95,36 @@ export async function importLeads(
   });
   return response.data;
 }
+
+// Search leads with filters
+export interface SearchLeadsResponse {
+  success: boolean;
+  data?: Lead[];
+  pagination?: {
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  };
+  message?: string;
+  error?: string;
+}
+
+export async function searchLeads(
+  searchTerm: string = '',
+  page: number = 1,
+  pageSize: number = 10,
+  leadType: string = 'all',
+  callStatus: string = 'all',
+  dateRange: string = 'all'
+): Promise<SearchLeadsResponse> {
+  const response = await axiosInstance.post('/leads/search', {
+    searchTerm,
+    page,
+    pageSize,
+    leadType,
+    callStatus,
+    dateRange,
+  });
+  return response.data;
+}

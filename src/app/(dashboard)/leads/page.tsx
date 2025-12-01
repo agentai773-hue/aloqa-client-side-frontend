@@ -3,14 +3,45 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeads, useDeleteLead } from '@/hooks/useLeads';
+import { useSearchLeads } from '@/hooks/useSearchLeads';
 import { useInitiateCall } from '@/hooks/useInitiateCall';
 import { useCallHistory } from '@/hooks/useInitiateCall';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
+import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Trash2, Phone, Play, Calendar, MapPin, Clock } from 'lucide-react';
 
 export default function LeadsPage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
+  
+  // Regular leads query
   const { data: leads = [], isLoading: leadsLoading, error: leadsError, refetch: refetchLeads } = useLeads();
+  
+  // Search/filter states
+  const [page, setPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterDate, setFilterDate] = useState<string>('all');
+  const pageSize = 10;
+
+  // Search query hook
+  const { 
+    data: searchData,
+    isLoading: isSearching,
+    isError: isSearchError,
+    error: searchError
+  } = useSearchLeads(
+    searchQuery,
+    page,
+    pageSize,
+    filterType,
+    filterStatus,
+    filterDate,
+    true // enabled
+  );
+
+  // Other mutations and queries
   const deleteLeadMutation = useDeleteLead();
   const callMutation = useInitiateCall();
   const { data: callHistoryData } = useCallHistory(1, 1000);
@@ -22,12 +53,6 @@ export default function LeadsPage() {
   const [callError, setCallError] = useState<string>('');
   const [callSuccess, setCallSuccess] = useState<string>('');
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
-  
-  // Search and Filter States
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [filterType, setFilterType] = useState<string>('all');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterDate, setFilterDate] = useState<string>('all');
 
   // Auto-update lead_type to 'hot' when call_status becomes 'completed'
   useEffect(() => {
@@ -139,68 +164,25 @@ export default function LeadsPage() {
     }
   };
 
-  // Filter function
-  const getFilteredLeads = () => {
-    let filtered = leads;
+  // Determine if we should use search/filter results
+  const hasFiltersActive = filterType !== 'all' || filterStatus !== 'all' || filterDate !== 'all';
+  const shouldUseSearch = searchQuery.trim() || hasFiltersActive;
 
-    // Search filter
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((lead: any) =>
-        lead.full_name.toLowerCase().includes(query) ||
-        lead.contact_number.includes(query) ||
-        (lead.project_name && lead.project_name.toLowerCase().includes(query))
-      );
-    }
+  // Use search results if searching/filtering, otherwise use regular leads data
+  const displayedLeads = shouldUseSearch ? (searchData?.data as any[]) || [] : leads || [];
+  const pagination = shouldUseSearch ? searchData?.pagination : { total: leads?.length || 0, page: 1, pageSize: 10, totalPages: 1 };
+  const isLoading = shouldUseSearch ? isSearching : leadsLoading;
+  const hasError = shouldUseSearch ? isSearchError : !!leadsError;
+  const errorMessage = shouldUseSearch ? searchError : leadsError;
 
-    // Lead type filter
-    if (filterType !== 'all') {
-      filtered = filtered.filter((lead: any) => lead.lead_type === filterType);
-    }
-
-    // Call status filter
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((lead: any) => lead.call_status === filterStatus);
-    }
-
-    // Date filter
-    if (filterDate !== 'all') {
-      const now = new Date();
-      const leadDate = (lead: any) => new Date(lead.createdAt);
-
-      filtered = filtered.filter((lead: any) => {
-        const lDate = leadDate(lead);
-        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const leadDateOnly = new Date(lDate.getFullYear(), lDate.getMonth(), lDate.getDate());
-
-        switch (filterDate) {
-          case 'today':
-            return leadDateOnly.getTime() === today.getTime();
-          case 'yesterday':
-            const yesterday = new Date(today);
-            yesterday.setDate(yesterday.getDate() - 1);
-            return leadDateOnly.getTime() === yesterday.getTime();
-          case 'last_week':
-            const weekAgo = new Date(today);
-            weekAgo.setDate(weekAgo.getDate() - 7);
-            return leadDateOnly >= weekAgo && leadDateOnly <= today;
-          case 'last_month':
-            const monthAgo = new Date(today);
-            monthAgo.setMonth(monthAgo.getMonth() - 1);
-            return leadDateOnly >= monthAgo && leadDateOnly <= today;
-          default:
-            return true;
-        }
-      });
-    }
-
-    return filtered;
-  };
-
-  const filteredLeads = getFilteredLeads();
+  // Debug effect
+  useEffect(() => {
+    console.log('LeadsPage - Filters changed:', { searchQuery, filterType, filterStatus, filterDate, page, hasFiltersActive, shouldUseSearch });
+    console.log('Search data:', searchData);
+  }, [searchQuery, filterType, filterStatus, filterDate, page, searchData, hasFiltersActive, shouldUseSearch]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 py-8">
+    <div className="min-h-screen bg-linear-to-br from-green-50 via-emerald-50 to-teal-50 py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Page Title Section */}
         <div className="mb-10">
@@ -313,28 +295,28 @@ export default function LeadsPage() {
         <div className="bg-white rounded-3xl shadow-lg overflow-hidden border border-green-100">
           {/* Table Container */}
           <div className="overflow-x-auto">
-            {leadsLoading && (
+            {isLoading && (
               <div className="p-12 text-center text-gray-500">
                 <div className="inline-block animate-spin rounded-full h-10 w-10 border-2 border-green-600 border-t-transparent"></div>
                 <p className="mt-4 text-lg">Loading leads...</p>
               </div>
             )}
 
-            {!leadsLoading && (!leads || leads.length === 0) && (
+            {!isLoading && (!leads || leads.length === 0) && !shouldUseSearch && (
               <div className="p-12 text-center text-gray-500">
                 <p className="text-2xl font-semibold text-gray-700 mb-2">No leads found</p>
                 <p className="text-base">Create your first lead to get started</p>
               </div>
             )}
 
-            {!leadsLoading && leads && leads.length > 0 && filteredLeads.length === 0 && (
+            {!isLoading && leads && leads.length > 0 && displayedLeads.length === 0 && (
               <div className="p-12 text-center text-gray-500">
                 <p className="text-2xl font-semibold text-gray-700 mb-2">No leads match your filters</p>
                 <p className="text-base">Try adjusting your search or filter criteria</p>
               </div>
             )}
 
-            {!leadsLoading && filteredLeads && filteredLeads.length > 0 && (
+            {!isLoading && displayedLeads && displayedLeads.length > 0 && (
               <>
                 <table className="w-full">
                   <thead>
@@ -360,7 +342,7 @@ export default function LeadsPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filteredLeads.map((lead: any) => (
+                    {displayedLeads.map((lead: any) => (
                       <tr key={lead._id} className="hover:bg-green-50 transition-all duration-300">
                         <td className="px-6 py-5 text-sm font-semibold text-gray-900">
                           {lead.full_name}
@@ -444,7 +426,7 @@ export default function LeadsPage() {
                 {/* Pagination Info */}
                 <div className="px-8 py-5 border-t border-green-100 bg-linear-to-r from-green-50 to-emerald-50">
                   <p className="text-sm font-semibold text-gray-700">
-                    📊 Showing <span className="text-green-600 font-bold">1-{Math.min(filteredLeads.length, 10)}</span> from <span className="text-green-600 font-bold">{filteredLeads.length}</span> leads
+                    📊 Showing <span className="text-green-600 font-bold">1-{Math.min(displayedLeads.length, 10)}</span> from <span className="text-green-600 font-bold">{pagination?.total || 0}</span> leads
                   </p>
                 </div>
               </>
