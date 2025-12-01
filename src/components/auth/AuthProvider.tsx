@@ -26,49 +26,19 @@ export default function AuthProvider({
 
     async function initAuth() {
       try {
-        // Check localStorage first (most reliable for app startup)
-        let hasToken = false;
-        if (typeof window !== 'undefined') {
-          const storedToken = localStorage.getItem('token');
-          if (storedToken) {
-            hasToken = true;
-            console.log('🔐 Token found in localStorage, verifying with backend...');
-          }
-        }
-        
-        // Also check cookies (httpOnly from backend)
-        if (!hasToken) {
-          const cookieToken = Cookies.get('token');
-          if (cookieToken) {
-            hasToken = true;
-            console.log('🔐 Token found in cookies, verifying with backend...');
-          }
-        }
-        
-        if (hasToken) {
-          // Token exists, verify it with backend using Authorization header
+        // Check for token in cookies (backend stores token in cookies)
+        const token = Cookies.get('token');
+        if (token) {
+          // Token exists, verify it's still valid
           const verified = await verify();
-          
-          if (verified) {
-            console.log('✅ Token verified successfully');
-          } else {
-            console.warn('⚠️ Token verification failed');
+          if (!verified) {
+            console.warn('Token verification failed, user will be redirected to login');
           }
-        } else {
-          console.log('ℹ️ No token found');
         }
       } catch (error) {
-        console.error('❌ Error initializing auth:', error);
-        // Clean up on error
-        if (typeof window !== 'undefined') {
-          localStorage.removeItem('token');
-        }
-        Cookies.remove('token');
+        console.error('Error initializing auth:', error);
       } finally {
-        // Small delay to ensure Redux state is updated
-        setTimeout(() => {
-          setIsInitializing(false);
-        }, 100);
+        setIsInitializing(false);
       }
     }
     
