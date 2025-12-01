@@ -50,6 +50,7 @@ export interface User {
   companyName: string;
   isApproval: number;
   role: string;
+  lastLogin?: Date;
 }
 
 export interface LoginResponse {

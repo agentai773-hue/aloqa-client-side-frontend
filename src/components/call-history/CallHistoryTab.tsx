@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useCallHistory } from '@/hooks/useInitiateCall';
+import { useSearchCallHistory } from '@/hooks/useSearchCallHistory';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
 import { useAssistants } from '@/hooks/useAssistants';
 import { useLeads } from '@/hooks/useLeads';
@@ -22,7 +23,25 @@ export default function CallHistoryTab() {
   const pageSize = 10;
   
   const queryClient = useQueryClient();
-  const { data: callHistoryData, isLoading, isError, error, refetch } = useCallHistory(page, pageSize);
+  
+  // Regular call history query
+  const { data: callHistoryData, isLoading: isLoadingHistory, isError, error, refetch } = useCallHistory(page, pageSize);
+  
+  // Search query - only enabled when searchTerm is not empty
+  const { 
+    data: searchData, 
+    isLoading: isSearching, 
+    isError: isSearchError,
+    error: searchError
+  } = useSearchCallHistory(
+    searchTerm,
+    page,
+    pageSize,
+    statusFilter,
+    assistantFilter,
+    true // enabled
+  );
+  
   const { data: assistantsData } = useAssistants();
   
   // Get site visits data if call is selected and has leadId
@@ -30,36 +49,36 @@ export default function CallHistoryTab() {
     selectedCall?.leadId || null
   );
 
-  const calls = (callHistoryData?.data as any[]) || [];
-  const pagination = callHistoryData?.pagination;
+  // Determine if we should use search/filter results (when search term or filters are active)
+  const hasFiltersActive = statusFilter !== 'all' || assistantFilter !== 'all';
+  const shouldUseSearch = searchTerm.trim() || hasFiltersActive;
 
-  // Filter calls based on search, status, and assistant
-  const filteredCalls = calls.filter((call) => {
-    const matchesSearch = searchTerm === '' || 
-      call.callerName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      call.recipientPhoneNumber?.includes(searchTerm) ||
-      call.projectName?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus = statusFilter === 'all' || call.status === statusFilter;
-    
-    const matchesAssistant = assistantFilter === 'all' || call.agentId === assistantFilter;
-
-    return matchesSearch && matchesStatus && matchesAssistant;
-  });
+  // Use search results if searching/filtering, otherwise use regular call history data
+  const calls = shouldUseSearch ? (searchData?.data as any[]) || [] : (callHistoryData?.data as any[]) || [];
+  const pagination = shouldUseSearch ? searchData?.pagination : callHistoryData?.pagination;
+  const isLoading = shouldUseSearch ? isSearching : isLoadingHistory;
+  const hasError = shouldUseSearch ? isSearchError : isError;
+  const errorMessage = shouldUseSearch ? searchError : error;
 
   // Get assistants list from hook
   const assistants = assistantsData?.data || [];
 
-  // Auto-refresh every 5 seconds if enabled
+  // Debug effect
   useEffect(() => {
-    if (!autoRefresh) return;
+    console.log('CallHistoryTab - Filters changed:', { searchTerm, statusFilter, assistantFilter, page, hasFiltersActive, shouldUseSearch });
+    console.log('Search data:', searchData);
+  }, [searchTerm, statusFilter, assistantFilter, page, searchData, hasFiltersActive, shouldUseSearch]);
+
+  // Auto-refresh every 5 seconds if enabled (only when not searching/filtering)
+  useEffect(() => {
+    if (!autoRefresh || shouldUseSearch) return; // Don't auto-refresh while searching/filtering
 
     const interval = setInterval(() => {
       refetch?.();
     }, 5000); // Refresh every 5 seconds
 
     return () => clearInterval(interval);
-  }, [autoRefresh, refetch]);
+  }, [autoRefresh, refetch, shouldUseSearch]);
 
   // Monitor call status changes and invalidate leads when call completes
   useEffect(() => {
@@ -231,39 +250,39 @@ export default function CallHistoryTab() {
       </div>
 
       {/* Error State */}
-      {isError && (
+      {hasError && (
         <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg flex items-center gap-2">
           <AlertCircle className="w-5 h-5 shrink-0" />
-          <span>{error?.message || 'Failed to load call history'}</span>
+          <span>{(errorMessage as any)?.message || 'Failed to load call history'}</span>
         </div>
       )}
 
       {/* Loading State */}
-      {isLoading && (
+      {(isLoading || isSearching) && (
         <div className="p-8 text-center">
           <Loader className="w-8 h-8 animate-spin mx-auto text-blue-600" />
-          <p className="mt-2 text-gray-600">Loading call history...</p>
+          <p className="mt-2 text-gray-600">{isSearching ? 'Searching...' : 'Loading call history...'}</p>
         </div>
       )}
 
       {/* Empty State */}
-      {!isLoading && calls.length === 0 && (
+      {!isLoading && !isSearching && calls.length === 0 && !searchTerm.trim() && (
         <div className="p-8 text-center bg-gray-50 rounded-lg border border-gray-200">
           <Phone className="w-12 h-12 mx-auto text-gray-400 mb-3" />
           <p className="text-gray-600">No calls found. Start making calls!</p>
         </div>
       )}
 
-      {/* Empty State - No filtered results */}
-      {!isLoading && calls.length > 0 && filteredCalls.length === 0 && (
+      {/* Empty State - No search results */}
+      {!isLoading && !isSearching && calls.length === 0 && searchTerm.trim() && (
         <div className="p-8 text-center bg-gray-50 rounded-lg border border-gray-200">
           <Phone className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-          <p className="text-gray-600">No calls match your filters. Try adjusting your search.</p>
+          <p className="text-gray-600">No calls match your search. Try a different search term.</p>
         </div>
       )}
 
       {/* Call History Table */}
-      {!isLoading && filteredCalls.length > 0 && (
+      {!isLoading && !isSearching && calls.length > 0 && (
         <div className="bg-white rounded-xl shadow-md overflow-hidden mx-4 lg:mx-6">
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -287,7 +306,7 @@ export default function CallHistoryTab() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {filteredCalls.map((call: any) => (
+                {calls.map((call: any) => (
                   <tr 
                     key={call._id} 
                     className="hover:bg-gray-50 transition cursor-pointer" 
