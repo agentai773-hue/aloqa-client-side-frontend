@@ -15,7 +15,6 @@ import {
   Zap,
   Bot,
   Plus,
-  LogOut,
   UserCheck,
 } from "lucide-react";
 
@@ -37,7 +36,6 @@ const navigation = [
   { name: "Call History", href: "/call-history", icon: History },
   { name: "Site Visit", href: "/site-visits", icon: History },
   { name: "Site Users", href: "/site-user", icon: UserCheck },
-  { name: "Logout", href: "/logout", icon: LogOut },
 ];
 
 export default function Sidebar() {

@@ -138,9 +138,16 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white py-3 rounded-lg font-semibold transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/50 mt-6"
+                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-emerald-700 disabled:to-emerald-800 text-white py-3 rounded-lg font-semibold transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/50 mt-6 flex items-center justify-center gap-2"
               >
-                {isLoading ? "Signing in..." : "Sign In"}
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-emerald-200 border-t-white rounded-full animate-spin"></div>
+                    <span>Signing in...</span>
+                  </>
+                ) : (
+                  "Sign In"
+                )}
               </button>
             </form>
 

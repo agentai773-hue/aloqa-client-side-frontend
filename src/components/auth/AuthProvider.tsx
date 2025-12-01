@@ -16,7 +16,6 @@ export default function AuthProvider({
   const { isAuthenticated, isLoading, verify } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
   const isLoginPage = pathname === "/auth/login";
-  const isLogoutPage = pathname === "/logout";
   const isForgotPasswordPage = pathname?.startsWith("/auth/forgot-password");
   const initRef = useRef(false);
 
@@ -50,25 +49,23 @@ export default function AuthProvider({
   useEffect(() => {
     if (isInitializing) return;
     
-    // Don't redirect on logout page - let it handle its own redirect
-    if (isLogoutPage) {
+    // If authenticated and on login page, redirect to dashboard immediately
+    if (isAuthenticated && isLoginPage) {
+      router.replace("/");
       return;
     }
-
-    if (isAuthenticated && isLoginPage) {
-      router.push("/");
-    } else if (!isAuthenticated && !isLoginPage && !isForgotPasswordPage) {
-      router.push("/auth/login");
+    
+    // If not authenticated and not on login/forgot-password page, redirect to login
+    if (!isAuthenticated && !isLoginPage && !isForgotPasswordPage) {
+      router.replace("/auth/login");
     }
-  }, [isAuthenticated, pathname, router, isInitializing, isLoginPage, isLogoutPage, isForgotPasswordPage]);
+  }, [isAuthenticated, pathname, router, isInitializing, isLoginPage, isForgotPasswordPage]);
 
-  if (isInitializing || isLoading) {
+  // Only show loader during initial app load (not during login/logout transitions)
+  if (isInitializing && !isLoginPage && !isForgotPasswordPage) {
     return <FullPageLoader text="Initializing..." />;
   }
 
-  if (!isAuthenticated && !isLoginPage && !isForgotPasswordPage && !isLogoutPage) {
-    return <FullPageLoader text="Redirecting to login..." />;
-  }
-
+  // Show content, let redirects happen in background
   return <>{children}</>;
 }
