@@ -24,8 +24,13 @@ export function useAuth() {
           return false;
         }
 
-        // Save token to localStorage
-        // localStorage.setItem('token', token);
+        // Ensure token is in cookies (loginUser already sets it, but double-check for live)
+        if (token) {
+          Cookies.set('token', token, {
+            expires: 10,
+            path: '/',
+          });
+        }
 
         dispatch(setUser({ token, user }));
         dispatch(setLoading(false));
@@ -44,11 +49,21 @@ export function useAuth() {
     try {
       dispatch(setLoading(true));
       const { token, user } = await verifyToken();
-      // Token is already stored in cookies by backend
-      // No need to manually set it
+      
+      // Ensure token is set in cookies
+      if (token) {
+        Cookies.set('token', token, {
+          expires: 10,
+          path: '/',
+        });
+      }
+      
       dispatch(setUser({ token, user }));
       return true;
     } catch (err) {
+      console.error('Token verification failed:', err);
+      // Clear cookies if verification fails
+      Cookies.remove('token');
       dispatch(logout());
       return false;
     } finally {
