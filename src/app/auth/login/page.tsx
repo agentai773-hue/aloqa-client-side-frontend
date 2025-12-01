@@ -16,34 +16,19 @@ export default function LoginPage() {
   const [localError, setLocalError] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
 
-  // Load form data from localStorage on mount
+  // Initialize client-side rendering
   useEffect(() => {
     setIsClient(true);
-    const savedFormData = localStorage.getItem("loginFormData");
-    if (savedFormData) {
-      try {
-        setFormData(JSON.parse(savedFormData));
-      } catch (err) {
-        console.error("Failed to parse saved form data:", err);
-      }
-    }
   }, []);
-
-  // Save form data to localStorage whenever it changes
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem("loginFormData", JSON.stringify(formData));
-    }
-  }, [formData, isClient]);
 
   // Redirect after login (smooth, no page refresh)
   useEffect(() => {
-    if (isAuthenticated) {
-      // Clear saved form data on successful login
-      localStorage.removeItem("loginFormData");
+    if (isAuthenticated && !isLoading) {
+      // Clear form data and redirect
+      setFormData({ email: "", password: "" });
       router.replace("/");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isLoading, router]);
 
   // Update local error when Redux error changes
   useEffect(() => {
@@ -52,7 +37,7 @@ export default function LoginPage() {
     }
   }, [error, localError]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.email || !formData.password) {
@@ -62,13 +47,12 @@ export default function LoginPage() {
 
     setLocalError(null);
 
-    // Call login without await - let Redux handle the state updates
-    login(formData.email, formData.password).then((success) => {
-      if (!success) {
-        // Keep form values intact, show error
-        setLocalError("Invalid email or password. Please try again.");
-      }
-    });
+    // Call login and wait for result
+    const success = await login(formData.email, formData.password);
+    if (!success) {
+      // Keep form values intact, show error
+      setLocalError("Invalid email or password. Please try again.");
+    }
   };
 
   const displayError = localError || error;

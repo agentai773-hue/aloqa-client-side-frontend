@@ -1,11 +1,11 @@
 import axios from 'axios';
 import Cookies from 'js-cookie';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || ' http://localhost:8082/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8082/api';
 
 const axiosInstance = axios.create({
   baseURL: API_BASE_URL,
-  withCredentials: true,
+  withCredentials: true, // Important: allow cookies in requests
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,7 +28,10 @@ axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     // Extract error message from API response if available
-    if (error.response?.data?.error) {
+    if (error.response?.data?.message) {
+      const errorMessage = error.response.data.message;
+      error.message = errorMessage;
+    } else if (error.response?.data?.error) {
       const errorMessage = error.response.data.error;
       error.message = errorMessage;
     }
