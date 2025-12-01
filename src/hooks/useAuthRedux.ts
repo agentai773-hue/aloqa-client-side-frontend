@@ -24,21 +24,22 @@ export function useAuth() {
           return false;
         }
 
-        // Ensure token is in cookies (loginUser already sets it, but double-check for live)
+        // Ensure token is stored in localStorage for persistence
         if (token) {
-          Cookies.set('token', token, {
-            expires: 10,
-            path: '/',
-          });
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('token', token);
+          }
         }
 
         dispatch(setUser({ token, user }));
         dispatch(setLoading(false));
+        console.log('✅ Login successful');
         return true;
       } catch (err: any) {
         const errorMessage = err.response?.data?.message || err.message || 'Login failed';
         dispatch(setError(errorMessage));
         dispatch(setLoading(false));
+        console.error('❌ Login error:', errorMessage);
         return false;
       }
     },
@@ -48,22 +49,41 @@ export function useAuth() {
   const verify = useCallback(async () => {
     try {
       dispatch(setLoading(true));
+      dispatch(setError(null));
+      
       const { token, user } = await verifyToken();
       
-      // Ensure token is set in cookies
+      // Check if user is approved
+      if (user.isApproval !== 1) {
+        dispatch(setError('Your account has not been approved by admin.'));
+        Cookies.remove('token');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+        }
+        dispatch(logout());
+        return false;
+      }
+      
+      // Ensure token is set in localStorage
       if (token) {
-        Cookies.set('token', token, {
-          expires: 10,
-          path: '/',
-        });
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', token);
+        }
       }
       
       dispatch(setUser({ token, user }));
+      console.log('✅ Verification successful');
       return true;
-    } catch (err) {
-      console.error('Token verification failed:', err);
-      // Clear cookies if verification fails
+    } catch (err: any) {
+      console.error('❌ Token verification failed:', err.message);
+      const errorMessage = err.response?.data?.message || err.message || 'Verification failed';
+      dispatch(setError(errorMessage));
+      
+      // Clear token from all storage locations
       Cookies.remove('token');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+      }
       dispatch(logout());
       return false;
     } finally {
@@ -72,9 +92,13 @@ export function useAuth() {
   }, [dispatch]);
 
   const logoutUser = useCallback(() => {
-    // Remove token from cookies
+    // Remove token from all storage locations
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
     Cookies.remove('token');
     dispatch(logout());
+    console.log('✅ Logout successful');
   }, [dispatch]);
 
   return {

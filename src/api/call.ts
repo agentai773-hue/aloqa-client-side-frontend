@@ -74,7 +74,6 @@ export async function initiateCall(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error initiating call:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to initiate call',
@@ -98,7 +97,6 @@ export async function initiateCustomCall(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error initiating custom call:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to initiate call',
@@ -130,7 +128,6 @@ export async function getCallHistoryWithFilters(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching call history with filters:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to fetch call history'
@@ -157,7 +154,6 @@ export async function getCallHistory(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching call history:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to fetch call history'
@@ -179,7 +175,6 @@ export async function getCallHistoryByLead(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching lead call history:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to fetch lead call history'
@@ -198,7 +193,6 @@ export async function getCallsWithRecordings(): Promise<CallHistoryResponse> {
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching calls with recordings:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to fetch calls with recordings'
@@ -220,7 +214,6 @@ export async function getCallDetails(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching call details:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to fetch call details'
@@ -257,7 +250,6 @@ export async function searchCallHistory(
     );
     return response.data;
   } catch (error: any) {
-    console.error('Error searching call history:', error);
     return {
       success: false,
       message: error.response?.data?.message || error.message || 'Failed to search call history'

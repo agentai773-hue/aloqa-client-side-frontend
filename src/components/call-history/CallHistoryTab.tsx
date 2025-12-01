@@ -6,9 +6,10 @@ import { useSearchCallHistory } from '@/hooks/useSearchCallHistory';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
 import { useAssistants } from '@/hooks/useAssistants';
 import { useLeads } from '@/hooks/useLeads';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useCheckCallStatus } from '@/hooks/useCheckCallStatus';
 import { Phone, Download, Loader, AlertCircle, Play, X, Pause, RefreshCw, Clock, Calendar, MapPin, Search } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
 
 export default function CallHistoryTab() {
   const [page, setPage] = useState(1);
@@ -16,25 +17,28 @@ export default function CallHistoryTab() {
   const [detailsTab, setDetailsTab] = useState<'overview' | 'transcript'>('overview');
   const [isPlaying, setIsPlaying] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [assistantFilter, setAssistantFilter] = useState<string>('all');
   const pageSize = 10;
   
   const queryClient = useQueryClient();
   
+  // Get mutation hook for checking call status
+  const { mutate: checkStatus, isPending: isCheckingStatus } = useCheckCallStatus();
+  
   // Regular call history query
   const { data: callHistoryData, isLoading: isLoadingHistory, isError, error, refetch } = useCallHistory(page, pageSize);
   
-  // Search query - only enabled when searchTerm is not empty
+  // Search query - only enabled when debouncedSearchTerm is not empty
   const { 
     data: searchData, 
     isLoading: isSearching, 
     isError: isSearchError,
     error: searchError
   } = useSearchCallHistory(
-    searchTerm,
+    debouncedSearchTerm,
     page,
     pageSize,
     statusFilter,
@@ -51,7 +55,7 @@ export default function CallHistoryTab() {
 
   // Determine if we should use search/filter results (when search term or filters are active)
   const hasFiltersActive = statusFilter !== 'all' || assistantFilter !== 'all';
-  const shouldUseSearch = searchTerm.trim() || hasFiltersActive;
+  const shouldUseSearch = debouncedSearchTerm.trim() || hasFiltersActive;
 
   // Use search results if searching/filtering, otherwise use regular call history data
   const calls = shouldUseSearch ? (searchData?.data as any[]) || [] : (callHistoryData?.data as any[]) || [];
@@ -63,11 +67,10 @@ export default function CallHistoryTab() {
   // Get assistants list from hook
   const assistants = assistantsData?.data || [];
 
-  // Debug effect
+  // Reset page to 1 when search/filters change
   useEffect(() => {
-    console.log('CallHistoryTab - Filters changed:', { searchTerm, statusFilter, assistantFilter, page, hasFiltersActive, shouldUseSearch });
-    console.log('Search data:', searchData);
-  }, [searchTerm, statusFilter, assistantFilter, page, searchData, hasFiltersActive, shouldUseSearch]);
+    setPage(1);
+  }, [debouncedSearchTerm, statusFilter, assistantFilter]);
 
   // Auto-refresh every 5 seconds if enabled (only when not searching/filtering)
   useEffect(() => {
@@ -114,32 +117,17 @@ export default function CallHistoryTab() {
     return `${mins}m ${secs}s`;
   };
 
-  const checkCallStatus = async () => {
+  const handleCheckCallStatus = () => {
     if (!selectedCall?._id) return;
 
-    setIsCheckingStatus(true);
-    try {
-      const response = await axios.post(
-        `/api/client-call/call-history/check-status/${selectedCall._id}`,
-        {}
-      );
-
-      if (response.data.success && response.data.data) {
+    checkStatus(selectedCall._id, {
+      onSuccess: (data) => {
         // Update the selected call with latest data
-        setSelectedCall(response.data.data);
+        setSelectedCall(data);
         // Also refetch the list to update the table
         refetch?.();
-        
-        // If call status is completed, invalidate leads query to refresh lead types
-        if (response.data.data.status === 'completed') {
-          queryClient.invalidateQueries({ queryKey: ['leads'] });
-        }
-      }
-    } catch (err) {
-      console.error('Error checking call status:', err);
-    } finally {
-      setIsCheckingStatus(false);
-    }
+      },
+    });
   };
 
   const getStatusColor = (status: string) => {
@@ -513,7 +501,7 @@ export default function CallHistoryTab() {
                     <p className="font-semibold text-gray-900">{formatDate(selectedCall.createdAt)}</p>
                   </div>
                   <button
-                    onClick={checkCallStatus}
+                    onClick={handleCheckCallStatus}
                     disabled={isCheckingStatus}
                     className="w-full mt-2 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50 flex items-center justify-center gap-1.5 transition text-xs font-semibold border border-blue-200"
                   >

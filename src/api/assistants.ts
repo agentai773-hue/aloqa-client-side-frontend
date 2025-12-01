@@ -24,7 +24,6 @@ export async function fetchUserAssistants(): Promise<AssistantsResponse> {
     );
     return response.data;
   } catch (error) {
-    console.error("Error fetching assistants:", error);
     throw error;
   }
 }
@@ -42,7 +41,6 @@ export async function getAssistantById(
     }>(`/client-assistants/${assistantId}`);
     return response.data;
   } catch (error) {
-    console.error("Error fetching assistant:", error);
     throw error;
   }
 }

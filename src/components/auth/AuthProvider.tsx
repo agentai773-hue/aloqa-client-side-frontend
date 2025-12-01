@@ -13,7 +13,7 @@ export default function AuthProvider({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { isAuthenticated, isLoading, verify } = useAuth();
+  const { isAuthenticated, isLoading, verify, token } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
   const isLoginPage = pathname === "/auth/login";
   const isForgotPasswordPage = pathname?.startsWith("/auth/forgot-password");
@@ -51,12 +51,14 @@ export default function AuthProvider({
     
     // If authenticated and on login page, redirect to dashboard immediately
     if (isAuthenticated && isLoginPage) {
+      console.log('Authenticated user on login page, redirecting to dashboard');
       router.replace("/");
       return;
     }
     
     // If not authenticated and not on login/forgot-password page, redirect to login
     if (!isAuthenticated && !isLoginPage && !isForgotPasswordPage) {
+      console.log('Not authenticated, redirecting to login');
       router.replace("/auth/login");
     }
   }, [isAuthenticated, pathname, router, isInitializing, isLoginPage, isForgotPasswordPage]);
