@@ -26,13 +26,23 @@ export default function AuthProvider({
     initRef.current = true;
 
     async function initAuth() {
-      // Check for token in cookies (backend stores token in cookies)
-      const token = Cookies.get('token');
-      if (token) {
-        await verify();
+      try {
+        // Check for token in cookies (backend stores token in cookies)
+        const token = Cookies.get('token');
+        if (token) {
+          // Token exists, verify it's still valid
+          const verified = await verify();
+          if (!verified) {
+            console.warn('Token verification failed, user will be redirected to login');
+          }
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+      } finally {
+        setIsInitializing(false);
       }
-      setIsInitializing(false);
     }
+    
     initAuth();
   }, [verify]);
 
