@@ -7,6 +7,7 @@ import { useSearchLeads } from '@/hooks/useSearchLeads';
 import { useInitiateCall } from '@/hooks/useInitiateCall';
 import { useCallHistory } from '@/hooks/useInitiateCall';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Trash2, Phone, Play, Calendar, MapPin, Clock } from 'lucide-react';
 
@@ -25,14 +26,17 @@ export default function LeadsPage() {
   const [filterDate, setFilterDate] = useState<string>('all');
   const pageSize = 10;
 
-  // Search query hook
+  // Debounce search query (500ms delay)
+  const debouncedSearchQuery = useDebounce(searchQuery, 500);
+
+  // Search query hook - uses DEBOUNCED search query
   const { 
     data: searchData,
     isLoading: isSearching,
     isError: isSearchError,
     error: searchError
   } = useSearchLeads(
-    searchQuery,
+    debouncedSearchQuery,
     page,
     pageSize,
     filterType,
@@ -166,7 +170,7 @@ export default function LeadsPage() {
 
   // Determine if we should use search/filter results
   const hasFiltersActive = filterType !== 'all' || filterStatus !== 'all' || filterDate !== 'all';
-  const shouldUseSearch = searchQuery.trim() || hasFiltersActive;
+  const shouldUseSearch = debouncedSearchQuery.trim() || hasFiltersActive;
 
   // Use search results if searching/filtering, otherwise use regular leads data
   const displayedLeads = shouldUseSearch ? (searchData?.data as any[]) || [] : leads || [];
@@ -177,9 +181,9 @@ export default function LeadsPage() {
 
   // Debug effect
   useEffect(() => {
-    console.log('LeadsPage - Filters changed:', { searchQuery, filterType, filterStatus, filterDate, page, hasFiltersActive, shouldUseSearch });
-    console.log('Search data:', searchData);
-  }, [searchQuery, filterType, filterStatus, filterDate, page, searchData, hasFiltersActive, shouldUseSearch]);
+    // Reset to page 1 when search query or filters change
+    setPage(1);
+  }, [debouncedSearchQuery, filterType, filterStatus, filterDate]);
 
   return (
     <div className="min-h-screen bg-linear-to-br from-green-50 via-emerald-50 to-teal-50 py-8">

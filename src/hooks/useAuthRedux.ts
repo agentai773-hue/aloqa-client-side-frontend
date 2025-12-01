@@ -24,16 +24,22 @@ export function useAuth() {
           return false;
         }
 
-        // Save token to localStorage
-        // localStorage.setItem('token', token);
+        // Ensure token is stored in localStorage for persistence
+        if (token) {
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('token', token);
+          }
+        }
 
         dispatch(setUser({ token, user }));
         dispatch(setLoading(false));
+        console.log('✅ Login successful');
         return true;
       } catch (err: any) {
         const errorMessage = err.response?.data?.message || err.message || 'Login failed';
         dispatch(setError(errorMessage));
         dispatch(setLoading(false));
+        console.error('❌ Login error:', errorMessage);
         return false;
       }
     },
@@ -43,12 +49,41 @@ export function useAuth() {
   const verify = useCallback(async () => {
     try {
       dispatch(setLoading(true));
+      dispatch(setError(null));
+      
       const { token, user } = await verifyToken();
-      // Token is already stored in cookies by backend
-      // No need to manually set it
+      
+      // Check if user is approved
+      if (user.isApproval !== 1) {
+        dispatch(setError('Your account has not been approved by admin.'));
+        Cookies.remove('token');
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('token');
+        }
+        dispatch(logout());
+        return false;
+      }
+      
+      // Ensure token is set in localStorage
+      if (token) {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('token', token);
+        }
+      }
+      
       dispatch(setUser({ token, user }));
+      console.log('✅ Verification successful');
       return true;
-    } catch (err) {
+    } catch (err: any) {
+      console.error('❌ Token verification failed:', err.message);
+      const errorMessage = err.response?.data?.message || err.message || 'Verification failed';
+      dispatch(setError(errorMessage));
+      
+      // Clear token from all storage locations
+      Cookies.remove('token');
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('token');
+      }
       dispatch(logout());
       return false;
     } finally {
@@ -57,9 +92,13 @@ export function useAuth() {
   }, [dispatch]);
 
   const logoutUser = useCallback(() => {
-    // Remove token from cookies
+    // Remove token from all storage locations
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+    }
     Cookies.remove('token');
     dispatch(logout());
+    console.log('✅ Logout successful');
   }, [dispatch]);
 
   return {

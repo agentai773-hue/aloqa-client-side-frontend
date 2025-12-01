@@ -15,7 +15,6 @@ import {
   Zap,
   Bot,
   Plus,
-  LogOut,
   UserCheck,
 } from "lucide-react";
 
@@ -37,7 +36,6 @@ const navigation = [
   { name: "Call History", href: "/call-history", icon: History },
   { name: "Site Visit", href: "/site-visits", icon: History },
   { name: "Site Users", href: "/site-user", icon: UserCheck },
-  { name: "Logout", href: "/logout", icon: LogOut },
 ];
 
 export default function Sidebar() {
@@ -115,11 +113,11 @@ export default function Sidebar() {
             {!isOpen && (
               <button
                 onClick={() => setIsOpen(true)}
-                className="w-10 h-10 bg-gradient-to-br from-[#34DB17] to-[#306B25] rounded-xl flex items-center justify-center mx-auto transform hover:scale-110 transition-transform duration-300 shadow-md hover:shadow-lg"
+                className="w-10 h-10 rounded-xl flex items-center justify-center mx-auto transform hover:scale-110 transition-transform duration-300 shadow-md hover:shadow-lg"
                 title="Expand sidebar"
               >
                 <img 
-                  src="/logo.svg" 
+                  src="/inner-logo.svg" 
                   alt="Aloqa AI" 
                   className="w-6 h-6"
                 />
