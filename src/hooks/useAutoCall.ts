@@ -4,12 +4,14 @@ import { startAutoCall, stopAutoCall, getAutoCallStatus } from '@/api/auto-call'
 export function useAutoCall() {
   const queryClient = useQueryClient();
 
-  // Query for auto-call status
+  // Query for auto-call status - check only on mount and manual refetch
   const statusQuery = useQuery({
     queryKey: ['autoCallStatus'],
     queryFn: getAutoCallStatus,
-    refetchInterval: 5000, // Refresh every 5 seconds
-    retry: 1
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    retry: 1,
   });
 
   // Mutation for starting auto-call

@@ -6,10 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { KeyRound, AlertCircle, CheckCircle, Eye, EyeOff } from "lucide-react";
 import { useResetPasswordWithOTP } from "@/hooks/useForgotPassword";
 
-export default function ResetPasswordContent() {
+function ResetPasswordForm({ email }: { email: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const email = searchParams.get("email") || "";
 
   const [otp, setOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -82,13 +80,13 @@ export default function ResetPasswordContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Card Container */}
         <div className="bg-white rounded-2xl shadow-xl p-8 md:p-10">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-[#34DB17] to-[#306B25] rounded-full mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-linear-to-br from-[#34DB17] to-[#306B25] rounded-full mb-4">
               <KeyRound className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Reset Password</h1>
@@ -241,7 +239,7 @@ export default function ResetPasswordContent() {
             <button
               type="submit"
               disabled={isPending || passwordReset}
-              className="w-full py-3 px-4 bg-gradient-to-r from-[#34DB17] to-[#306B25] text-white font-semibold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
+              className="w-full py-3 px-4 bg-linear-to-r from-[#34DB17] to-[#306B25] text-white font-semibold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
               {isPending ? (
                 <>
@@ -285,4 +283,11 @@ export default function ResetPasswordContent() {
       </div>
     </div>
   );
+}
+
+export default function ResetPasswordContent() {
+  const searchParams = useSearchParams();
+  const email = searchParams.get("email") || "";
+
+  return <ResetPasswordForm email={email} />;
 }

@@ -2,7 +2,8 @@
 
 import React, { useState } from 'react';
 import { useCreateSiteUser } from '@/hooks/useSiteUsers';
-import { X } from 'lucide-react';
+import { useProjects } from '@/hooks/useProjects';
+import { X, Loader, AlertCircle } from 'lucide-react';
 
 interface AddSiteUserFormProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ export const AddSiteUserForm: React.FC<AddSiteUserFormProps> = ({
   onSuccess,
 }) => {
   const createMutation = useCreateSiteUser();
+  const { data: projectsData, isLoading: isLoadingProjects, isError: projectsError } = useProjects();
 
   const [formData, setFormData] = useState({
     full_name: '',
@@ -198,15 +200,44 @@ export const AddSiteUserForm: React.FC<AddSiteUserFormProps> = ({
               <label className="block text-sm font-semibold text-gray-700 mb-2">
                 Project Name *
               </label>
-              <input
-                type="text"
-                name="project_name"
-                value={formData.project_name}
-                onChange={handleChange}
-                placeholder="Enter Project Name"
-                disabled={createMutation.isPending}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-              />
+              {isLoadingProjects && (
+                <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center gap-2 text-gray-600 text-sm">
+                  <Loader className="w-4 h-4 animate-spin" />
+                  <span>Loading...</span>
+                </div>
+              )}
+
+              {projectsError && !isLoadingProjects && (
+                <div className="w-full px-4 py-3 border border-red-300 rounded-lg bg-red-50 flex items-center gap-2 text-red-600 text-sm">
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  <span>Failed to load</span>
+                </div>
+              )}
+
+              {!isLoadingProjects && !projectsError && (
+                <select
+                  name="project_name"
+                  value={formData.project_name}
+                  onChange={(e) => {
+                    handleChange({
+                      target: { name: 'project_name', value: e.target.value },
+                    } as any);
+                  }}
+                  disabled={createMutation.isPending}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed bg-white text-gray-700"
+                >
+                  <option value="">Select Project</option>
+                  {projectsData && projectsData.length > 0 ? (
+                    projectsData.map((project: string) => (
+                      <option key={project} value={project}>
+                        {project}
+                      </option>
+                    ))
+                  ) : (
+                    <option disabled>No projects available</option>
+                  )}
+                </select>
+              )}
             </div>
 
             {/* Password - Full width */}

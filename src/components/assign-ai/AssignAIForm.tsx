@@ -5,6 +5,7 @@ import Input from "@/components/ui/input";
 import { Zap, Loader, AlertCircle, Trash2, Plus, CheckCircle } from "lucide-react";
 import { useAssistants } from "@/hooks/useAssistants";
 import { usePhoneNumbers } from "@/hooks/usePhoneNumbers";
+import { useProjects } from "@/hooks/useProjects";
 import {
     useAssignAssistantPhoneMutation,
     useUnassignAssistantPhoneMutation,
@@ -39,6 +40,12 @@ export default function AssignAIForm() {
         isLoading: isLoadingPhoneNumbers,
         isError: phoneNumbersError,
     } = usePhoneNumbers();
+
+    const {
+        data: projectsData,
+        isLoading: isLoadingProjects,
+        isError: projectsError,
+    } = useProjects();
 
     const {
         data: assignmentsData,
@@ -214,18 +221,44 @@ export default function AssignAIForm() {
                                             >
                                                 Project Name <span className="text-red-500">*</span>
                                             </label>
-                                            <Input
-                                                id="projectName"
-                                                type="text"
-                                                name="projectName"
-                                                placeholder="e.g. Shilp Serene"
-                                                value={formData.projectName}
-                                                onChange={handleChange}
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg 
-                  focus:outline-none focus:ring-2 focus:ring-[#34DB17] 
-                  focus:border-transparent"
-                                                disabled={isSubmitting}
-                                            />
+
+                                            {isLoadingProjects && (
+                                                <div className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 flex items-center gap-2 text-gray-600 text-sm">
+                                                    <Loader className="w-4 h-4 animate-spin" />
+                                                    <span>Loading...</span>
+                                                </div>
+                                            )}
+
+                                            {projectsError && !isLoadingProjects && (
+                                                <div className="w-full px-4 py-3 border border-red-300 rounded-lg bg-red-50 flex items-center gap-2 text-red-600 text-sm">
+                                                    <AlertCircle className="w-4 h-4 shrink-0" />
+                                                    <span>Failed to load</span>
+                                                </div>
+                                            )}
+
+                                            {!isLoadingProjects && !projectsError && (
+                                                <select
+                                                    id="projectName"
+                                                    name="projectName"
+                                                    value={formData.projectName}
+                                                    onChange={handleChange}
+                                                    className="w-full px-4 py-2 border border-gray-300 rounded-lg 
+                     focus:outline-none focus:ring-2 focus:ring-[#34DB17] 
+                     focus:border-transparent bg-white text-gray-700"
+                                                    disabled={isSubmitting}
+                                                >
+                                                    <option value="">Choose Project</option>
+                                                    {projectsData && projectsData.length > 0 ? (
+                                                        projectsData.map((project: string) => (
+                                                            <option key={project} value={project}>
+                                                                {project}
+                                                            </option>
+                                                        ))
+                                                    ) : (
+                                                        <option disabled>No projects available</option>
+                                                    )}
+                                                </select>
+                                            )}
                                         </div>
 
                                         {/* AI Assistant */}
@@ -350,7 +383,8 @@ export default function AssignAIForm() {
                                         disabled={
                                             isSubmitting ||
                                             isLoadingAssistants ||
-                                            isLoadingPhoneNumbers
+                                            isLoadingPhoneNumbers ||
+                                            isLoadingProjects
                                         }
                                         className="py-3 px-4 bg-[#34DB17] hover:bg-[#2FC812] disabled:bg-gray-400 disabled:cursor-not-allowed text-white font-semibold rounded-lg transition-all duration-200 flex items-center justify-center gap-2"
                                     >

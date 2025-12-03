@@ -5,7 +5,6 @@ import Link from "next/link";
 import { LogIn, Phone, Building2, Lock, User, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuthRedux";
-import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -32,10 +31,10 @@ export default function LoginPage() {
 
   // Update local error when Redux error changes
   useEffect(() => {
-    if (error && !localError) {
+    if (error) {
       setLocalError(error);
     }
-  }, [error, localError]);
+  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,8 +49,8 @@ export default function LoginPage() {
     // Call login and wait for result
     const success = await login(formData.email, formData.password);
     if (!success) {
-      // Keep form values intact, show error
-      setLocalError("Invalid email or password. Please try again.");
+      // Error will be set by Redux, no need to override it
+      // The error from useAuth hook will be displayed
     }
   };
 

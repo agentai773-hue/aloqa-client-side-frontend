@@ -39,7 +39,6 @@ export function useAuth() {
         const errorMessage = err.response?.data?.message || err.message || 'Login failed';
         dispatch(setError(errorMessage));
         dispatch(setLoading(false));
-        console.error('❌ Login error:', errorMessage);
         return false;
       }
     },
@@ -75,7 +74,6 @@ export function useAuth() {
       console.log('✅ Verification successful');
       return true;
     } catch (err: any) {
-      console.error('❌ Token verification failed:', err.message);
       const errorMessage = err.response?.data?.message || err.message || 'Verification failed';
       dispatch(setError(errorMessage));
       

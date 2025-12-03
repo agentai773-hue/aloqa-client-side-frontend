@@ -2,11 +2,13 @@
 
 import React, { useState } from 'react';
 import { useCreateLead } from '@/hooks/useLeads';
+import { useProjects } from '@/hooks/useProjects';
 import Link from 'next/link';
 import { ChevronLeft } from 'lucide-react';
 
 export default function SingleLeadPage() {
   const createLeadMutation = useCreateLead();
+  const { data: projects = [], isLoading: projectsLoading } = useProjects();
   const [formData, setFormData] = useState({
     full_name: '',
     contact_number: '',
@@ -120,14 +122,22 @@ export default function SingleLeadPage() {
                   <label className="block text-base font-semibold text-gray-800 mb-3">
                     Project Name <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
+                  <select
                     required
                     value={formData.project_name}
                     onChange={(e) => setFormData({ ...formData, project_name: e.target.value })}
-                    placeholder="Enter Project Name"
-                    className="w-full px-5 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#34DB17] focus:border-transparent outline-none transition bg-white text-gray-900"
-                  />
+                    disabled={projectsLoading}
+                    className="w-full px-5 py-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#34DB17] focus:border-transparent outline-none transition bg-white text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  >
+                    <option value="">
+                      {projectsLoading ? 'Loading projects...' : 'Select a project'}
+                    </option>
+                    {projects.map((project) => (
+                      <option key={project} value={project}>
+                        {project}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>

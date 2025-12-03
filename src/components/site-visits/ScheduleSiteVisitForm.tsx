@@ -43,6 +43,16 @@ export const ScheduleSiteVisitForm: React.FC<ScheduleSiteVisitFormProps> = ({
     (user: SiteUser) => user.is_active && user.project_name === projectName
   );
 
+  // Auto-assign the first site executive when form loads (if not already set)
+  useEffect(() => {
+    if (filteredSiteUsers.length > 0 && !formData.siteExecutiveId) {
+      setFormData((prev) => ({
+        ...prev,
+        siteExecutiveId: filteredSiteUsers[0]._id,
+      }));
+    }
+  }, [filteredSiteUsers]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -141,7 +151,7 @@ export const ScheduleSiteVisitForm: React.FC<ScheduleSiteVisitFormProps> = ({
           <div>
             <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-2">
               <User className="h-4 w-4 text-green-600" />
-              Site Executive
+              Site Executive {formData.siteExecutiveId && <span className="text-xs text-green-600">(Auto-assigned)</span>}
             </label>
             {filteredSiteUsers.length > 0 ? (
               <select

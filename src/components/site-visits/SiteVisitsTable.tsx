@@ -3,6 +3,7 @@
 import { Calendar, Clock, MapPin, Phone, AlertCircle, Edit2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useAllSiteVisits, type SiteVisit } from "@/hooks/useSiteVisits";
+import { useSiteUsers } from "@/hooks/useSiteUsers";
 import { EditSiteVisitModal } from "./EditSiteVisitModal";
 
 interface SiteVisitsTableProps {
@@ -13,7 +14,10 @@ export { type SiteVisit };
 
 export default function SiteVisitsTable({ onDataLoaded }: SiteVisitsTableProps = {}) {
   const { siteVisits, isLoading } = useAllSiteVisits();
+  const { data: siteUsersData } = useSiteUsers();
   const [editingVisit, setEditingVisit] = useState<SiteVisit | null>(null);
+
+  const siteUsers = siteUsersData?.data || [];
 
   // Call the callback when data changes
   useEffect(() => {
@@ -105,16 +109,32 @@ export default function SiteVisitsTable({ onDataLoaded }: SiteVisitsTableProps =
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-gray-400 italic">Not assigned</span>
-                    <button
-                      onClick={() => setEditingVisit(visit)}
-                      className="p-1 text-blue-600 hover:bg-blue-100 rounded transition-colors"
-                      title="Assign Executive"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <>
+                    {(() => {
+                      // Find the first active site user for this project
+                      const projectSiteUser = siteUsers.find(
+                        (user: any) => user.is_active && user.project_name === visit.projectName
+                      );
+
+                      if (projectSiteUser) {
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <span className="font-semibold text-gray-900">{projectSiteUser.full_name}</span>
+                            <a
+                              href={`tel:${projectSiteUser.contact_number}`}
+                              className="text-green-600 hover:text-green-700 text-xs hover:underline transition-colors"
+                            >
+                              {projectSiteUser.contact_number}
+                            </a>
+                          </div>
+                        );
+                      } else {
+                        return (
+                          <span className="text-gray-400 italic">No executive available</span>
+                        );
+                      }
+                    })()}
+                  </>
                 )}
               </td>
               <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
