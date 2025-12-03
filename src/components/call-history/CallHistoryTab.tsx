@@ -6,7 +6,6 @@ import { useSearchCallHistory } from '@/hooks/useSearchCallHistory';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
 import { useAssistants } from '@/hooks/useAssistants';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useWebSocket } from '@/hooks/useWebSocket';
 import { Phone, Download, Loader, AlertCircle, Play, X, Pause, RefreshCw, Clock, Calendar, MapPin, Search } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -22,9 +21,6 @@ export default function CallHistoryTab() {
   const pageSize = 10;
   
   const queryClient = useQueryClient();
-  
-  // Use WebSocket for real-time updates instead of polling
-  const { isConnected: wsConnected } = useWebSocket();
   
   // Regular call history query
   const { data: callHistoryData, isLoading: isLoadingHistory, isError, error, refetch } = useCallHistory(page, pageSize);

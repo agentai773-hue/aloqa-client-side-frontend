@@ -1,23 +1,22 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeads, useDeleteLead } from '@/hooks/useLeads';
 import { useSearchLeads } from '@/hooks/useSearchLeads';
 import { useCallHistory } from '@/hooks/useInitiateCall';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useWebSocket } from '@/hooks/useWebSocket';
 import { updateLead } from '@/api/leads';
 import { useQueryClient } from '@tanstack/react-query';
+import { useWebSocketContext } from '@/components/providers/WebSocketProvider';
+import { useWebSocketListeners } from '@/hooks/useWebSocketListeners';
 import { Eye, Trash2, Phone, Play, Calendar, MapPin, Clock } from 'lucide-react';
 
 export default function LeadsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
-  
-  // Initialize WebSocket for real-time updates
-  const { isConnected: wsConnected } = useWebSocket();
+  const { onLeadStatusChanged, onCallStatusUpdated, onCallCompleted } = useWebSocketContext();
   
   // Regular leads query
   const { data: leads = [], isLoading: leadsLoading, error: leadsError, refetch: refetchLeads } = useLeads();
@@ -59,14 +58,10 @@ export default function LeadsPage() {
   const [deleteSuccess, setDeleteSuccess] = useState<string>('');
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
 
-  // Monitor real-time call status updates from WebSocket
-  useEffect(() => {
-    if (wsConnected) {
-      console.log('✅ WebSocket connected - Real-time updates enabled for leads');
-    }
-  }, [wsConnected]);
-
   // Auto-update lead_type to 'hot' when call_status becomes 'completed'
+  // ⚠️  COMMENTED OUT temporarily to debug WebSocket listener re-registration issue
+  // This effect might be causing unnecessary re-renders
+  /*
   useEffect(() => {
     if (leads && leads.length > 0) {
       leads.forEach((lead: any) => {
@@ -77,6 +72,25 @@ export default function LeadsPage() {
       });
     }
   }, [leads, callHistoryData]);
+  */
+
+  // Use WebSocket listeners - registered globally to survive Fast Refresh
+  useWebSocketListeners();
+
+  // Track if we've already emitted leads:fetched to prevent duplicate emissions
+  const leadsEmittedRef = useRef(false);
+
+  // Emit leads:fetched event ONLY on first load
+  useEffect(() => {
+    if (leads && leads.length > 0 && !leadsEmittedRef.current) {
+      const socket = (window as any).__socket;
+      if (socket) {
+        leadsEmittedRef.current = true;
+        console.log(`📡 [Emit] leads:fetched - ${leads.length} leads loaded (first time only)`);
+        socket.emit('leads:fetched', { leads });
+      }
+    }
+  }, [leads?.length]); // Only depend on leads.length to avoid frequent re-emissions
 
   const updateLeadType = async (leadId: string, newType: string) => {
     try {
