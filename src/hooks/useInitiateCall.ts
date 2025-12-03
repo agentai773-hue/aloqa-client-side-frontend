@@ -1,4 +1,4 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { 
   initiateCall, 
   initiateCustomCall, 
@@ -17,6 +17,8 @@ import {
  * Used in Leads page table
  */
 export function useInitiateCall() {
+  const queryClient = useQueryClient();
+  
   return useMutation<
     InitiateCallResponse,
     Error,
@@ -32,6 +34,24 @@ export function useInitiateCall() {
       
       return response;
     },
+    onSuccess: (data) => {
+      // Invalidate leads queries so frontend sees updated call status
+      console.log('✅ [useInitiateCall] Call initiated successfully - invalidating queries');
+      console.log('📊 Response:', data);
+      
+      // Invalidate with 'all' to force refetch immediately
+      queryClient.invalidateQueries({ 
+        queryKey: ['leads'],
+        refetchType: 'all'
+      });
+      console.log('✅ [useInitiateCall] Invalidated [leads] query with refetchType=all');
+      
+      queryClient.invalidateQueries({ 
+        queryKey: ['leadsSearch'],
+        refetchType: 'all'
+      });
+      console.log('✅ [useInitiateCall] Invalidated [leadsSearch] query with refetchType=all');
+    },
     onError: (error: any) => {
       console.error('Call initiation error:', error);
     }
@@ -43,6 +63,8 @@ export function useInitiateCall() {
  * Used in Make Call form
  */
 export function useInitiateCustomCall() {
+  const queryClient = useQueryClient();
+  
   return useMutation<
     InitiateCallResponse,
     Error,
@@ -57,6 +79,24 @@ export function useInitiateCustomCall() {
       }
       
       return response;
+    },
+    onSuccess: (data) => {
+      // Invalidate leads queries so frontend sees updated call status
+      console.log('✅ [useInitiateCustomCall] Custom call initiated successfully - invalidating queries');
+      console.log('📊 Response:', data);
+      
+      // Invalidate with 'all' to force refetch immediately
+      queryClient.invalidateQueries({ 
+        queryKey: ['leads'],
+        refetchType: 'all'
+      });
+      console.log('✅ [useInitiateCustomCall] Invalidated [leads] query with refetchType=all');
+      
+      queryClient.invalidateQueries({ 
+        queryKey: ['leadsSearch'],
+        refetchType: 'all'
+      });
+      console.log('✅ [useInitiateCustomCall] Invalidated [leadsSearch] query with refetchType=all');
     },
     onError: (error: any) => {
       console.error('Custom call initiation error:', error);

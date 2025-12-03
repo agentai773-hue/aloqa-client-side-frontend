@@ -3,6 +3,7 @@ import "../app/globals.css";
 import AuthProvider from "@/components/auth/AuthProvider";
 import ReduxProvider from "@/components/providers/ReduxProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
+import WebSocketProvider from "@/components/providers/WebSocketProvider";
 
 export const metadata: Metadata = {
   title: "Aloqa AI - Client Calling Portal",
@@ -19,7 +20,9 @@ export default function RootLayout({
       <body>
         <ReduxProvider>
           <QueryProvider>
-            <AuthProvider>{children}</AuthProvider>
+            <WebSocketProvider>
+              <AuthProvider>{children}</AuthProvider>
+            </WebSocketProvider>
           </QueryProvider>
         </ReduxProvider>
       </body>

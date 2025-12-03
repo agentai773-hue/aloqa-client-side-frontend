@@ -36,11 +36,15 @@ axiosInstance.interceptors.response.use(
   (error) => {
     // Extract error message from API response if available
     if (error.response?.data?.message) {
-      const errorMessage = error.response.data.message;
-      error.message = errorMessage;
+      error.message = error.response.data.message;
     } else if (error.response?.data?.error) {
-      const errorMessage = error.response.data.error;
-      error.message = errorMessage;
+      error.message = error.response.data.error;
+    }
+    
+    // Handle 401 errors - token might be expired
+    if (error.response?.status === 401) {
+      // Token is invalid or expired
+      Cookies.remove('token');
     }
     
     return Promise.reject(error);
