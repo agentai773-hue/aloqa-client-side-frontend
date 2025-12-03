@@ -5,9 +5,8 @@ import { useCallHistory } from '@/hooks/useInitiateCall';
 import { useSearchCallHistory } from '@/hooks/useSearchCallHistory';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
 import { useAssistants } from '@/hooks/useAssistants';
-import { useLeads } from '@/hooks/useLeads';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useCheckCallStatus } from '@/hooks/useCheckCallStatus';
+import { useWebSocket } from '@/hooks/useWebSocket';
 import { Phone, Download, Loader, AlertCircle, Play, X, Pause, RefreshCw, Clock, Calendar, MapPin, Search } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -16,7 +15,6 @@ export default function CallHistoryTab() {
   const [selectedCall, setSelectedCall] = useState<any>(null);
   const [detailsTab, setDetailsTab] = useState<'overview' | 'transcript'>('overview');
   const [isPlaying, setIsPlaying] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const debouncedSearchTerm = useDebounce(searchTerm, 500);
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -25,8 +23,8 @@ export default function CallHistoryTab() {
   
   const queryClient = useQueryClient();
   
-  // Get mutation hook for checking call status
-  const { mutate: checkStatus, isPending: isCheckingStatus } = useCheckCallStatus();
+  // Use WebSocket for real-time updates instead of polling
+  const { isConnected: wsConnected } = useWebSocket();
   
   // Regular call history query
   const { data: callHistoryData, isLoading: isLoadingHistory, isError, error, refetch } = useCallHistory(page, pageSize);
@@ -72,25 +70,6 @@ export default function CallHistoryTab() {
     setPage(1);
   }, [debouncedSearchTerm, statusFilter, assistantFilter]);
 
-  // Auto-refresh every 5 seconds if enabled (only when not searching/filtering)
-  useEffect(() => {
-    if (!autoRefresh || shouldUseSearch) return; // Don't auto-refresh while searching/filtering
-
-    const interval = setInterval(() => {
-      refetch?.();
-    }, 5000); // Refresh every 5 seconds
-
-    return () => clearInterval(interval);
-  }, [autoRefresh, refetch, shouldUseSearch]);
-
-  // Monitor call status changes and invalidate leads when call completes
-  useEffect(() => {
-    if (selectedCall && selectedCall.status === 'completed') {
-      // Invalidate leads query when selected call is completed
-      queryClient.invalidateQueries({ queryKey: ['leads'] });
-    }
-  }, [selectedCall?.status, queryClient]);
-
   // Refresh selected call if it exists in new data
   useEffect(() => {
     if (selectedCall && calls.length > 0) {
@@ -115,19 +94,6 @@ export default function CallHistoryTab() {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}m ${secs}s`;
-  };
-
-  const handleCheckCallStatus = () => {
-    if (!selectedCall?._id) return;
-
-    checkStatus(selectedCall._id, {
-      onSuccess: (data) => {
-        // Update the selected call with latest data
-        setSelectedCall(data);
-        // Also refetch the list to update the table
-        refetch?.();
-      },
-    });
   };
 
   const getStatusColor = (status: string) => {
@@ -500,14 +466,6 @@ export default function CallHistoryTab() {
                     <p className="text-xs text-gray-500">Started</p>
                     <p className="font-semibold text-gray-900">{formatDate(selectedCall.createdAt)}</p>
                   </div>
-                  <button
-                    onClick={handleCheckCallStatus}
-                    disabled={isCheckingStatus}
-                    className="w-full mt-2 px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 disabled:opacity-50 flex items-center justify-center gap-1.5 transition text-xs font-semibold border border-blue-200"
-                  >
-                    <Clock className="w-3 h-3" />
-                    {isCheckingStatus ? 'Checking...' : 'Check'}
-                  </button>
                 </div>
               </div>
 

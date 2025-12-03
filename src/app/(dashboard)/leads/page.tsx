@@ -4,16 +4,20 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useLeads, useDeleteLead } from '@/hooks/useLeads';
 import { useSearchLeads } from '@/hooks/useSearchLeads';
-import { useInitiateCall } from '@/hooks/useInitiateCall';
 import { useCallHistory } from '@/hooks/useInitiateCall';
 import { useSiteVisitData } from '@/hooks/useSiteVisits';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useWebSocket } from '@/hooks/useWebSocket';
+import { updateLead } from '@/api/leads';
 import { useQueryClient } from '@tanstack/react-query';
 import { Eye, Trash2, Phone, Play, Calendar, MapPin, Clock } from 'lucide-react';
 
 export default function LeadsPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  
+  // Initialize WebSocket for real-time updates
+  const { isConnected: wsConnected } = useWebSocket();
   
   // Regular leads query
   const { data: leads = [], isLoading: leadsLoading, error: leadsError, refetch: refetchLeads } = useLeads();
@@ -47,16 +51,20 @@ export default function LeadsPage() {
 
   // Other mutations and queries
   const deleteLeadMutation = useDeleteLead();
-  const callMutation = useInitiateCall();
   const { data: callHistoryData } = useCallHistory(1, 1000);
   const [recordingsSidebar, setRecordingsSidebar] = useState<any>(null);
   const [siteVisitsSidebar, setSiteVisitsSidebar] = useState<any>(null);
   const [sidebarTab, setSidebarTab] = useState<'recordings' | 'site-visits'>('recordings');
   const [deleteError, setDeleteError] = useState<string>('');
   const [deleteSuccess, setDeleteSuccess] = useState<string>('');
-  const [callError, setCallError] = useState<string>('');
-  const [callSuccess, setCallSuccess] = useState<string>('');
   const [selectedRecording, setSelectedRecording] = useState<any>(null);
+
+  // Monitor real-time call status updates from WebSocket
+  useEffect(() => {
+    if (wsConnected) {
+      console.log('✅ WebSocket connected - Real-time updates enabled for leads');
+    }
+  }, [wsConnected]);
 
   // Auto-update lead_type to 'hot' when call_status becomes 'completed'
   useEffect(() => {
@@ -72,16 +80,8 @@ export default function LeadsPage() {
 
   const updateLeadType = async (leadId: string, newType: string) => {
     try {
-      const response = await fetch(`/api/leads-api/update/${leadId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        body: JSON.stringify({ lead_type: newType }),
-      });
-      
-      if (response.ok) {
+      const result = await updateLead(leadId, { lead_type: newType });
+      if (result.success) {
         refetchLeads();
       }
     } catch (err) {
@@ -94,9 +94,23 @@ export default function LeadsPage() {
     return calls.filter(call => call.leadId === leadId && call.recordingUrl);
   };
 
-  const handleViewRecordings = (leadId: string, leadName: string) => {
+  // Group recordings by phone number
+  const groupRecordingsByPhoneNumber = (recordings: any[]) => {
+    const grouped: { [key: string]: any[] } = {};
+    recordings.forEach(recording => {
+      const phoneNumber = recording.phoneNumberId || recording.recipientPhoneNumber || 'Unknown';
+      if (!grouped[phoneNumber]) {
+        grouped[phoneNumber] = [];
+      }
+      grouped[phoneNumber].push(recording);
+    });
+    return grouped;
+  };
+
+  const handleViewRecordings = (leadId: string, leadName: string, leadData?: any) => {
     const recordings = getLeadRecordings(leadId);
-    setRecordingsSidebar({ leadId, leadName, recordings });
+    const groupedByPhone = groupRecordingsByPhoneNumber(recordings);
+    setRecordingsSidebar({ leadId, leadName, recordings, groupedByPhone, scheduledCallTime: leadData?.scheduled_call_time, scheduledCallReason: leadData?.scheduled_call_reason });
   };
 
   const handlePlayRecording = (call: any) => {
@@ -107,21 +121,6 @@ export default function LeadsPage() {
   const handleViewSiteVisits = (leadId: string, leadName: string, leadData: any) => {
     setSiteVisitsSidebar({ leadId, leadName, leadData });
     setSidebarTab('site-visits');
-  };
-
-  const handleCallLead = async (leadId: string) => {
-    setCallError('');
-    setCallSuccess('');
-    try {
-      const result = await callMutation.mutateAsync({ leadId });
-      if (result.success) {
-        setCallSuccess(`Call initiated successfully! Calling ${result.data?.lead_name}`);
-        setTimeout(() => setCallSuccess(''), 5000);
-      }
-    } catch (err: any) {
-      setCallError(err.message || 'Failed to initiate call');
-      setTimeout(() => setCallError(''), 5000);
-    }
   };
 
   const handleDeleteLead = async (id: string) => {
@@ -267,20 +266,6 @@ export default function LeadsPage() {
         </div>
 
         {/* Alert Messages */}
-        {callError && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-3 shadow-sm">
-            <span className="text-2xl">⚠️</span>
-            <span className="font-medium">{callError}</span>
-          </div>
-        )}
-
-        {callSuccess && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-xl flex items-start gap-3 shadow-sm">
-            <span className="text-2xl">✓</span>
-            <span className="font-medium">{callSuccess}</span>
-          </div>
-        )}
-
         {deleteError && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-xl flex items-start gap-3 shadow-sm">
             <span className="text-2xl">⚠️</span>
@@ -378,31 +363,29 @@ export default function LeadsPage() {
                             >
                               <Eye className="h-5 w-5" />
                             </button>
-                            {lead.call_status === 'pending' ? (
-                              <button
-                                onClick={() => handleCallLead(lead._id)}
-                                disabled={callMutation.isPending}
-                                className="p-2 text-blue-500 hover:bg-blue-100 rounded-lg transition-all duration-200 disabled:opacity-50 animate-pulse"
-                                title="Call Lead"
-                              >
-                                <Phone className="h-5 w-5" />
-                              </button>
-                            ) : lead.call_status === 'completed' && getLeadRecordings(lead._id).length > 0 ? (
-                              <button
-                                onClick={() => handleViewRecordings(lead._id, lead.full_name)}
-                                className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-all duration-200"
-                                title={`View ${getLeadRecordings(lead._id).length} Recording(s)`}
-                              >
-                                <Play className="h-5 w-5 fill-current" />
-                              </button>
-                            ) : lead.call_status === 'completed' ? (
-                              <button
-                                onClick={() => handleViewSiteVisits(lead._id, lead.full_name, lead)}
-                                className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-all duration-200"
-                                title="Schedule Site Visit"
-                              >
-                                <Calendar className="h-5 w-5" />
-                              </button>
+                            {/* CALL BUTTON DISABLED - Only auto-call allowed */}
+                            {/* Manual call button removed - status updates via auto-call only */}
+                            {(lead.call_status === 'completed' || lead.call_status === 'scheduled') ? (
+                              <>
+                                {/* Show Recordings Button if recordings exist */}
+                                {getLeadRecordings(lead._id).length > 0 && (
+                                  <button
+                                    onClick={() => handleViewRecordings(lead._id, lead.full_name, lead)}
+                                    className="p-2 text-emerald-600 hover:bg-emerald-100 rounded-lg transition-all duration-200"
+                                    title={`View ${getLeadRecordings(lead._id).length} Recording(s)`}
+                                  >
+                                    <Play className="h-5 w-5 fill-current" />
+                                  </button>
+                                )}
+                                {/* Show Schedule/Site Visit Button */}
+                                <button
+                                  onClick={() => handleViewSiteVisits(lead._id, lead.full_name, lead)}
+                                  className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-all duration-200"
+                                  title="Schedule Site Visit"
+                                >
+                                  <Calendar className="h-5 w-5" />
+                                </button>
+                              </>
                             ) : (
                               <button
                                 disabled
@@ -558,52 +541,86 @@ export default function LeadsPage() {
                 </button>
               </div>
 
-              {/* Recordings List */}
-              <div className="p-6 space-y-4">
-                {recordingsSidebar.recordings.length === 0 ? (
+              {/* Scheduled Callback Info */}
+              {recordingsSidebar?.scheduledCallTime && (
+                <div className="p-6 border-b border-blue-200 bg-blue-50">
+                  <h3 className="text-sm font-semibold text-blue-900 mb-2">📅 Scheduled Callback</h3>
+                  <p className="text-sm text-blue-700">
+                    {new Date(recordingsSidebar.scheduledCallTime).toLocaleString()}
+                  </p>
+                  {recordingsSidebar?.scheduledCallReason && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      Reason: {recordingsSidebar.scheduledCallReason}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Recordings List - Grouped by Phone Number */}
+              <div className="p-6 space-y-6">
+                {recordingsSidebar?.recordings?.length === 0 ? (
                   <p className="text-center text-gray-600 py-8">No recordings found</p>
                 ) : (
-                  recordingsSidebar.recordings.map((recording: any, idx: number) => (
-                    <div key={idx} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
-                      {/* Recording Info */}
-                      <div className="mb-3">
-                        <p className="text-sm font-semibold text-gray-900">
-                          Recording {idx + 1}
+                  Object.entries(recordingsSidebar?.groupedByPhone || {}).map(([phoneNumber, recordings]) => (
+                    <div key={phoneNumber} className="border border-green-200 rounded-lg overflow-hidden">
+                      {/* Phone Number Header */}
+                      <div className="bg-green-50 px-4 py-3 border-b border-green-200">
+                        <p className="text-sm font-semibold text-green-900">
+                          📞 {phoneNumber}
                         </p>
-                        <p className="text-xs text-gray-600 mt-1">
-                          {new Date(recording.createdAt).toLocaleDateString()} at {new Date(recording.createdAt).toLocaleTimeString()}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          Duration: {recording.callDuration || 0}s
+                        <p className="text-xs text-green-600 mt-1">
+                          {(recordings as any[]).length} recording{(recordings as any[]).length !== 1 ? 's' : ''}
                         </p>
                       </div>
 
-                      {/* Audio Player */}
-                      <div className="mb-3 bg-gray-50 rounded p-2">
-                        <audio controls className="w-full h-8">
-                          <source src={recording.recordingUrl} type="audio/mpeg" />
-                        </audio>
-                      </div>
+                      {/* Recordings for this phone number */}
+                      <div className="divide-y divide-green-100">
+                        {(recordings as any[]).map((recording: any, idx: number) => (
+                          <div key={idx} className="p-4 hover:bg-gray-50 transition">
+                            {/* Recording Info */}
+                            <div className="mb-3">
+                              <p className="text-xs text-gray-600">
+                                {new Date(recording.createdAt).toLocaleDateString()} at {new Date(recording.createdAt).toLocaleTimeString()}
+                              </p>
+                              <p className="text-xs text-gray-600 mt-1">
+                                Duration: {recording.callDuration || 0}s
+                              </p>
+                              {recording.conversationTranscript && (
+                                <p className="text-xs text-blue-600 mt-1 truncate">
+                                  📝 Transcript available
+                                </p>
+                              )}
+                            </div>
 
-                      {/* Buttons */}
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handlePlayRecording(recording)}
-                          className="flex-1 text-xs px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
-                        >
-                          Full View
-                        </button>
-                        {recording.executionDetails?.transcript && (
-                          <button
-                            onClick={() => {
-                              setSelectedRecording(recording);
-                              setRecordingsSidebar(null);
-                            }}
-                            className="flex-1 text-xs px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
-                          >
-                            Transcript
-                          </button>
-                        )}
+                            {/* Audio Player */}
+                            <div className="mb-3 bg-gray-50 rounded p-2">
+                              <audio controls className="w-full h-8">
+                                <source src={recording.recordingUrl} type="audio/mpeg" />
+                              </audio>
+                            </div>
+
+                            {/* Buttons */}
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handlePlayRecording(recording)}
+                                className="flex-1 text-xs px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                              >
+                                Full View
+                              </button>
+                              {recording.conversationTranscript && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedRecording(recording);
+                                    setRecordingsSidebar(null);
+                                  }}
+                                  className="flex-1 text-xs px-3 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 transition"
+                                >
+                                  Transcript
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   ))

@@ -65,7 +65,7 @@ export default function AuthProvider({
         }
         Cookies.remove('token');
       } finally {
-        // Small delay to ensure Redux state is updated
+        // Small delay to ensure Redux state is updatedd
         setTimeout(() => {
           setIsInitializing(false);
         }, 100);
