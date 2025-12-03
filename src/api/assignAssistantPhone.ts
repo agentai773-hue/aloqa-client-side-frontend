@@ -29,7 +29,7 @@ export interface AssignAssistantPhoneResponse {
   success: boolean;
   message: string;
   data?: AssignmentData | AssignmentData[];
-  errors?: any[];
+  errors?: unknown[];
 }
 
 /**
