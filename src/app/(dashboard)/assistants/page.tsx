@@ -25,7 +25,7 @@ interface AssistantWithLeads {
 export default function AssistantsPage() {
     const [selectedAssistant, setSelectedAssistant] = useState<string | null>(null);
 
-    // Fetch assistants
+    // Fetch assistant
     const { data: assistantsData, isLoading: isLoadingAssistants } =
         useAssistants();
 

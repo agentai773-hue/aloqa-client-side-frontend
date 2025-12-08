@@ -275,7 +275,7 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
         console.log('📞 [EVENT] Call status updated received:', data);
         callback(data);
       };
-
+ 
       socketRef.current.on('call:status_updated', handler);
 
       return () => {
