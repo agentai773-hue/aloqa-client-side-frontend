@@ -2,59 +2,67 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { LogIn, Phone, Building2, Lock, User, Eye, EyeOff } from "lucide-react";
+import Image from "next/image";
+import { Lock, User, Eye, EyeOff } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/hooks/useAuthRedux";
+import { useAuth } from "@/hooks/useAuth";
+import PublicRoute from "@/components/auth/PublicRoute";
+import { AloqaInlineLoader } from "@/components/loaders";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
-  const { isAuthenticated, isLoading, error, login } = useAuth();
+  const { 
+    login, 
+    isAuthenticated, 
+    isLoading, 
+    loginError, 
+    error, 
+    clearLoginErrors 
+  } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({ email: "", password: "" });
-  const [localError, setLocalError] = useState<string | null>(null);
-  const [isClient, setIsClient] = useState(false);
-
-  // Initialize client-side rendering
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
 
   // Redirect after login (smooth, no page refresh)
   useEffect(() => {
     if (isAuthenticated && !isLoading) {
-      // Clear form data and redirect
-      setFormData({ email: "", password: "" });
       router.replace("/");
     }
   }, [isAuthenticated, isLoading, router]);
-
-  // Update local error when Redux error changes
-  useEffect(() => {
-    if (error) {
-      setLocalError(error);
-    }
-  }, [error]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!formData.email || !formData.password) {
-      setLocalError("Email and password are required");
       return;
     }
 
-    setLocalError(null);
+    // Clear previous errors
+    clearLoginErrors();
 
-    // Call login and wait for result
-    const success = await login(formData.email, formData.password);
-    if (!success) {
-      // Error will be set by Redux, no need to override it
-      // The error from useAuth hook will be displayed
+    try {
+      // Call login with credentials object
+      const result = await login({ 
+        email: formData.email, 
+        password: formData.password 
+      });
+      
+      // Check if login was successful using Redux Toolkit action result
+      if (result.type.endsWith('/fulfilled')) {
+        console.log("✅ Login successful");
+        setFormData({ email: "", password: "" }); // Clear form on success
+        // Redirect will happen automatically via useEffect
+      } else {
+        console.error("❌ Login failed:", result.payload || 'Unknown error');
+        // Error will be displayed automatically via loginError state
+      }
+    } catch (error) {
+      console.error("❌ Login error:", error);
     }
   };
 
-  const displayError = localError || error;
+  // Get the appropriate error to display
+  const displayError = loginError || error;
 
   return (
     <div className="min-h-screen flex bg-black overflow-hidden relative">
@@ -66,7 +74,7 @@ export default function LoginPage() {
           {/* Logo and Branding */}
           <div className="mb-12 text-center">
             <div className="flex justify-center mb-4">
-              <img src="/logo.svg" alt="Aloqa AI" className="h-16 w-auto" />
+              <Image src="/logo.svg" alt="Aloqa AI" width={64} height={64} className="h-16 w-auto" />
             </div>
           </div>
 
@@ -95,11 +103,16 @@ export default function LoginPage() {
                   type="email"
                   required
                   value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, email: e.target.value });
+                    // Clear errors when user starts typing
+                    if (displayError) {
+                      clearLoginErrors();
+                    }
+                  }}
                   className="w-full pl-12 pr-4 py-3 bg-gray-800/80 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 transition-all"
                   placeholder="Enter Your Email"
+                  disabled={isLoading}
                 />
               </div>
 
@@ -110,17 +123,23 @@ export default function LoginPage() {
                   type={showPassword ? "text" : "password"}
                   required
                   value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
+                  onChange={(e) => {
+                    setFormData({ ...formData, password: e.target.value });
+                    // Clear errors when user starts typing
+                    if (displayError) {
+                      clearLoginErrors();
+                    }
+                  }}
                   className="w-full pl-12 pr-12 py-3 bg-gray-800/80 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 transition-all"
                   placeholder="Enter Your Password"
+                  disabled={isLoading}
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                  disabled={isLoading}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -136,33 +155,16 @@ export default function LoginPage() {
               {/* Sign In Button */}
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-emerald-700 disabled:to-emerald-800 text-white py-3 rounded-lg font-semibold transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/50 mt-6 flex items-center justify-center gap-2"
+                disabled={isLoading || !formData.email || !formData.password}
+                className="w-full bg-linear-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 disabled:from-emerald-700 disabled:to-emerald-800 text-white py-3 rounded-lg font-semibold transition-all duration-300 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg hover:shadow-emerald-500/50 mt-6 flex items-center justify-center gap-2"
               >
                 {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 border-2 border-emerald-200 border-t-white rounded-full animate-spin"></div>
-                    <span>Signing in...</span>
-                  </>
+                  <AloqaInlineLoader text="Signing in..." size="sm" barColor="white" textColor="white" />
                 ) : (
                   "Sign In"
                 )}
               </button>
             </form>
-
-            {/* Divider */}
-            {/* <div className="flex items-center gap-3 my-6">
-              <div className="flex-1 h-px bg-gray-700"></div>
-              <span className="text-gray-500 text-xs">New to AI Agent?</span>
-              <div className="flex-1 h-px bg-gray-700"></div>
-            </div> */}
-
-            {/* Create Account Link */}
-            {/* <div className="text-center">
-              <a href="#" className="text-emerald-400 hover:text-emerald-300 font-medium text-sm transition-colors">
-                Create Your Account
-              </a>
-            </div> */}
           </div>
 
           {/* Footer */}
@@ -185,9 +187,11 @@ export default function LoginPage() {
         <div className="relative z-10 flex flex-col items-center justify-center">
           {/* Login SVG Image with Animation */}
           <div className="animate-pulse drop-shadow-2xl relative">
-            <img 
+            <Image 
               src="/login.svg" 
               alt="AI Calling" 
+              width={800}
+              height={800}
               className="w-full h-full max-w-2xl" 
               style={{ 
                 filter: 'brightness(1.2) contrast(1.1)',
@@ -243,5 +247,13 @@ export default function LoginPage() {
       </div>
 
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <PublicRoute>
+      <LoginPageContent />
+    </PublicRoute>
   );
 }

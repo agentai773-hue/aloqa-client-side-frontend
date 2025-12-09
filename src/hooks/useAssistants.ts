@@ -1,19 +1,32 @@
-import { useQuery } from "@tanstack/react-query";
-import { fetchUserAssistants, Assistant } from "@/api/assistants";
+import { useQuery } from '@tanstack/react-query';
+import { assistantsAPI } from '../api/assistants';
+import type { Assistant } from '../api/assistants';
 
-export function useAssistants() {
-  return useQuery<{ success: boolean; data: Assistant[] }>({
-    queryKey: ["assistants"],
-    queryFn: async () => {
-      const result = await fetchUserAssistants();
-      return {
-        success: result.success,
-        data: result.data || [],
-      };
-    },
+export const useAssistants = (enabled: boolean = true) => {
+  return useQuery({
+    queryKey: ['userAssistants'],
+    queryFn: assistantsAPI.getUserAssistants,
+    select: (data) => data.data || [],
     staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
     retry: 2,
-    enabled: true, // Always enable - component will handle loading state
+    enabled: enabled, // Only fetch when enabled
   });
-}
+};
+
+// Helper hook to get assistants as options for dropdowns
+export const useAssistantOptions = (enabled: boolean = true) => {
+  const { data: assistants, ...rest } = useAssistants(enabled);
+  
+  const options = assistants?.map((assistant: Assistant) => ({
+    value: assistant._id,
+    label: assistant.agentName,
+    agentId: assistant.agentId,
+    agentType: assistant.agentType,
+  })) || [];
+
+  return {
+    options,
+    assistants,
+    ...rest,
+  };
+};

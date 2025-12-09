@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { searchLeads, Lead } from '@/api/leads-api';
+import { Lead, leadsAPI } from '@/api/leads';
 
 export interface SearchLeadsParams {
   searchTerm: string;
@@ -47,12 +47,32 @@ export const useSearchLeads = (
     queryKey: ['leadsSearch', searchTerm, page, pageSize, leadType, callStatus, dateRange],
     queryFn: async () => {
       console.log('Searching leads with params:', { searchTerm, page, pageSize, leadType, callStatus, dateRange });
-      const result = await searchLeads(searchTerm, page, pageSize, leadType, callStatus, dateRange);
+      const result = await leadsAPI.getAll({
+        page,
+        limit: pageSize,
+        search: searchTerm,
+        leadType: leadType !== 'all' ? leadType : undefined,
+        status: callStatus !== 'all' ? callStatus : undefined
+      });
       console.log('Search result:', result);
       if (!result.success) {
-        throw new Error(result.error || 'Failed to search leads');
+        throw new Error(result.message || 'Failed to search leads');
       }
-      return result as SearchLeadsResponse;
+      
+      // Convert to expected format
+      const searchResponse: SearchLeadsResponse = {
+        success: result.success,
+        data: result.data.leads,
+        pagination: {
+          total: result.data.total,
+          page: result.data.page,
+          pageSize: result.data.limit,
+          totalPages: result.data.totalPages
+        },
+        message: result.message
+      };
+      
+      return searchResponse;
     },
     enabled: enabled, // Filters should work regardless of searchTerm
     staleTime: 0, // Always fresh data for search

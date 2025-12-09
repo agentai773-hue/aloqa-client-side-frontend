@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react';
 import { useCreateLead } from '@/hooks/useLeads';
-import { useAuth } from '@/hooks/useAuthRedux';
 
 interface AddLeadFormData {
   full_name: string;
@@ -14,7 +13,6 @@ interface AddLeadFormData {
 }
 
 export const AddLeadForm: React.FC = () => {
-  const { isAuthenticated } = useAuth();
   const createMutation = useCreateLead();
   const loading = createMutation.isPending;
   const error = createMutation.error?.message || '';
@@ -60,7 +58,22 @@ export const AddLeadForm: React.FC = () => {
     }
 
     try {
-      await createMutation.mutateAsync(formData);
+      // Map form data to Lead interface
+      const leadData = {
+        leadName: formData.full_name,
+        fullName: formData.full_name,
+        phone: formData.contact_number,
+        email: '', // Default empty email
+        location: '', // Default empty location
+        interestedProject: formData.project_name,
+        leadType: formData.lead_type === 'pending' ? 'cold' : 
+                  formData.lead_type === 'connected' ? 'hot' : 
+                  formData.lead_type as 'hot' | 'cold' | 'fake',
+        notes: '',
+        status: formData.call_status === 'pending' ? 'new' : 'old' as 'new' | 'old'
+      };
+
+      await createMutation.mutateAsync(leadData);
       setLocalSuccess('Lead created successfully!');
       setFormData({
         full_name: '',
@@ -70,8 +83,9 @@ export const AddLeadForm: React.FC = () => {
         project_name: '',
       });
       setTimeout(() => setLocalSuccess(''), 3000);
-    } catch (err: any) {
-      setLocalError(err.message || 'An error occurred');
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      setLocalError(errorMessage);
     }
   };
 

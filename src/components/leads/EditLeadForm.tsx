@@ -2,9 +2,8 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useLead, useUpdateLead } from '@/hooks/useLeads';
-import { Lead } from '@/api/leads-api';
-import { ArrowLeft } from 'lucide-react';
+import { useUpdateLead } from '@/hooks/useLeads';
+import { Lead } from '@/hooks/useLeads';
 
 interface EditLeadFormProps {
   lead: Lead;
@@ -15,18 +14,21 @@ export const EditLeadForm: React.FC<EditLeadFormProps> = ({ lead }) => {
   const updateMutation = useUpdateLead();
 
   const [formData, setFormData] = useState({
-    full_name: lead.full_name,
-    contact_number: lead.contact_number,
-    lead_type: lead.lead_type,
-    call_status: lead.call_status,
-    project_name: lead.project_name || '',
+    fullName: lead.fullName || '',
+    phone: lead.phone || '',
+    email: lead.email || '',
+    leadType: lead.leadType || 'cold',
+    status: lead.status || 'new',
+    interestedProject: lead.interestedProject || '',
+    location: lead.location || '',
+    notes: lead.notes || '',
   });
 
   const [localError, setLocalError] = useState<string>('');
   const [localSuccess, setLocalSuccess] = useState<string>('');
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -42,171 +44,198 @@ export const EditLeadForm: React.FC<EditLeadFormProps> = ({ lead }) => {
     setLocalError('');
     setLocalSuccess('');
 
-    // Validation
-    if (!formData.full_name.trim()) {
+    // Basic validation
+    if (!formData.fullName.trim()) {
       setLocalError('Full name is required');
       return;
     }
-    if (!formData.contact_number.trim()) {
-      setLocalError('Contact number is required');
-      return;
-    }
-    if (formData.contact_number.length < 10) {
-      setLocalError('Contact number must be at least 10 digits');
+    if (!formData.email.trim()) {
+      setLocalError('Email is required');
       return;
     }
 
     try {
       await updateMutation.mutateAsync({
-        id: lead._id,
-        data: {
-          full_name: formData.full_name,
-          contact_number: formData.contact_number,
-          lead_type: formData.lead_type,
-          call_status: formData.call_status,
-          project_name: formData.project_name || undefined,
-        },
+        ...formData,
+        _id: lead._id || '',
+        updatedAt: new Date().toISOString()
       });
       setLocalSuccess('Lead updated successfully!');
       setTimeout(() => {
-        router.push('/leads');
-      }, 1500);
-    } catch (err: any) {
-      setLocalError(err.message || 'Failed to update lead');
+        router.push('/dashboard/leads');
+      }, 1000);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to update lead';
+      setLocalError(errorMessage);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-md">
+      <div className="flex items-center mb-6">
+        <button
+          onClick={() => router.push('/dashboard/leads')}
+          className="mr-4 p-2 text-gray-600 hover:text-gray-800"
+        >
+          ← Back
+        </button>
+        <h2 className="text-2xl font-bold text-gray-800">Edit Lead</h2>
+      </div>
+
       {localError && (
-        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <div className="mb-4 p-3 bg-red-100 border border-red-300 text-red-700 rounded">
           {localError}
         </div>
       )}
 
       {localSuccess && (
-        <div className="p-4 bg-green-100 border border-green-400 text-green-700 rounded-lg">
+        <div className="mb-4 p-3 bg-green-100 border border-green-300 text-green-700 rounded">
           {localSuccess}
         </div>
       )}
 
-      {updateMutation.isError && (
-        <div className="p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          Error: {(updateMutation.error as any)?.message || 'Failed to update lead'}
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Full Name */}
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Full Name *
+          <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
+            Full Name
           </label>
           <input
+            id="fullName"
+            name="fullName"
             type="text"
-            name="full_name"
-            value={formData.full_name}
+            value={formData.fullName}
             onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
-            placeholder="Enter full name"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            disabled={updateMutation.isPending}
           />
         </div>
 
-        {/* Contact Number */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Contact Number *
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            Email
           </label>
           <input
-            type="tel"
-            name="contact_number"
-            value={formData.contact_number}
+            id="email"
+            name="email"
+            type="email"
+            value={formData.email}
             onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
-            placeholder="Enter contact number"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            disabled={updateMutation.isPending}
           />
         </div>
 
-        {/* Lead Type */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Lead Type *
+          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+            Phone
+          </label>
+          <input
+            id="phone"
+            name="phone"
+            type="tel"
+            value={formData.phone}
+            onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+            Location
+          </label>
+          <input
+            id="location"
+            name="location"
+            type="text"
+            value={formData.location}
+            onChange={handleChange}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="leadType" className="block text-sm font-medium text-gray-700 mb-1">
+            Lead Type
           </label>
           <select
-            name="lead_type"
-            value={formData.lead_type}
+            id="leadType"
+            name="leadType"
+            value={formData.leadType}
             onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            disabled={updateMutation.isPending}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="pending">Pending</option>
             <option value="hot">Hot</option>
+            <option value="warm">Warm</option>
             <option value="cold">Cold</option>
             <option value="fake">Fake</option>
-            <option value="connected">Connected</option>
           </select>
         </div>
 
-        {/* Call Status */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Call Status *
+          <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
+            Status
           </label>
           <select
-            name="call_status"
-            value={formData.call_status}
+            id="status"
+            name="status"
+            value={formData.status}
             onChange={handleChange}
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            disabled={updateMutation.isPending}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="pending">Pending</option>
-            <option value="connected">Connected</option>
-            <option value="not_connected">Not Connected</option>
-            <option value="callback">Callback</option>
+            <option value="new">New</option>
+            <option value="old">Old</option>
+            <option value="contacted">Contacted</option>
+            <option value="qualified">Qualified</option>
+            <option value="converted">Converted</option>
+            <option value="lost">Lost</option>
           </select>
         </div>
 
-        {/* Project Name */}
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Project Name
+        <div>
+          <label htmlFor="interestedProject" className="block text-sm font-medium text-gray-700 mb-1">
+            Interested Project
           </label>
           <input
+            id="interestedProject"
+            name="interestedProject"
             type="text"
-            name="project_name"
-            value={formData.project_name}
+            value={formData.interestedProject}
             onChange={handleChange}
-            placeholder="Enter project name (optional)"
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
-            disabled={updateMutation.isPending}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
-      </div>
 
-      {/* Submit Buttons */}
-      <div className="flex justify-end gap-3 pt-4">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-          disabled={updateMutation.isPending}
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={updateMutation.isPending}
-          className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors font-medium"
-        >
-          {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
-        </button>
-      </div>
-    </form>
+        <div>
+          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
+            Notes
+          </label>
+          <textarea
+            id="notes"
+            name="notes"
+            value={formData.notes}
+            onChange={handleChange}
+            rows={4}
+            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        <div className="flex space-x-4 pt-6">
+          <button
+            type="submit"
+            disabled={updateMutation.isPending}
+            className="flex-1 py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {updateMutation.isPending ? 'Updating...' : 'Update Lead'}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard/leads')}
+            className="flex-1 py-2 px-4 bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
   );
 };

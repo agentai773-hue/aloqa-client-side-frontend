@@ -1,61 +1,200 @@
-"use client";
+import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { RootState } from '../store';
+import { authAPI } from '../../api/auth';
+import type { 
+  LoginCredentials as APILoginCredentials, 
+  User as APIUser, 
+  AuthResponse as APIAuthResponse, 
+  VerifyResponse as APIVerifyResponse 
+} from '../../api/auth';
+import { APP_CONFIG } from '../../config/api';
 
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
-
-export interface User {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  mobile: string;
-  companyName: string;
-  isApproval: number;
-  role: string;
-}
-
+// Types
 export interface AuthState {
-  user: User | null;
+  user: APIUser | null;
   token: string | null;
-  isAuthenticated: boolean;
   isLoading: boolean;
+  isAuthenticated: boolean;
+  isInitialized: boolean;
   error: string | null;
+  loginError: string | null;
 }
 
+// Initial state
 const initialState: AuthState = {
   user: null,
   token: null,
-  isAuthenticated: false,
   isLoading: false,
+  isAuthenticated: false,
+  isInitialized: false,
   error: null,
+  loginError: null,
 };
 
+// Async thunks
+export const loginUser = createAsyncThunk<
+  APIAuthResponse,
+  APILoginCredentials,
+  { rejectValue: string }
+>(
+  'auth/login',
+  async (credentials, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.login(credentials);
+      
+      // Store token in localStorage for persistence
+      if (typeof window !== 'undefined' && response.token) {
+        localStorage.setItem(APP_CONFIG.AUTH.TOKEN_STORAGE_KEY, response.token);
+      }
+
+      return response;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const verifyToken = createAsyncThunk<
+  APIVerifyResponse,
+  void,
+  { rejectValue: string }
+>(
+  'auth/verify',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await authAPI.verifyToken();
+      return response;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Token verification failed';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+export const logoutUser = createAsyncThunk<
+  void,
+  void,
+  { rejectValue: string }
+>(
+  'auth/logout',
+  async (_, { rejectWithValue }) => {
+    try {
+      await authAPI.logout();
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Logout failed';
+      return rejectWithValue(errorMessage);
+    }
+  }
+);
+
+// Auth slice
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
-    setUser: (state, action: PayloadAction<{ user: User; token: string }>) => {
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-      state.isAuthenticated = true;
-      state.error = null;
-    },
-    setLoading: (state, action: PayloadAction<boolean>) => {
-      state.isLoading = action.payload;
-    },
-    setError: (state, action: PayloadAction<string | null>) => {
-      state.error = action.payload;
-    },
-    logout: (state) => {
-      state.user = null;
-      state.token = null;
-      state.isAuthenticated = false;
-      state.error = null;
-    },
     clearError: (state) => {
       state.error = null;
     },
+    clearLoginError: (state) => {
+      state.loginError = null;
+    },
+    resetAuth: (state) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.isLoading = false;
+      state.error = null;
+      state.loginError = null;
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('auth_token');
+      }
+    },
+    initializeAuth: (state) => {
+      state.isInitialized = true;
+      state.isLoading = false;
+    },
+  },
+  extraReducers: (builder) => {
+    // Login
+    builder
+      .addCase(loginUser.pending, (state) => {
+        state.isLoading = true;
+        state.loginError = null;
+        state.error = null;
+      })
+      .addCase(loginUser.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        state.loginError = null;
+        state.error = null;
+      })
+      .addCase(loginUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.loginError = action.payload || 'Login failed';
+      })
+    
+    // Verify Token
+      .addCase(verifyToken.pending, (state) => {
+        if (!state.isInitialized) {
+          state.isLoading = true;
+        }
+        state.error = null;
+      })
+      .addCase(verifyToken.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isInitialized = true;
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+        state.error = null;
+      })
+      .addCase(verifyToken.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isInitialized = true;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.error = action.payload || 'Authentication failed';
+      })
+    
+    // Logout
+      .addCase(logoutUser.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(logoutUser.fulfilled, (state) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.error = null;
+        state.loginError = null;
+      })
+      .addCase(logoutUser.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.error = action.payload || 'Logout failed';
+      });
   },
 });
 
-export const { setUser, setLoading, setError, logout, clearError } = authSlice.actions;
+// Actions
+export const { clearError, clearLoginError, resetAuth, initializeAuth } = authSlice.actions;
+
+// Selectors
+export const selectAuth = (state: RootState) => state.auth;
+export const selectUser = (state: RootState) => state.auth.user;
+export const selectIsAuthenticated = (state: RootState) => state.auth.isAuthenticated;
+export const selectIsLoading = (state: RootState) => state.auth.isLoading;
+export const selectAuthError = (state: RootState) => state.auth.error;
+export const selectLoginError = (state: RootState) => state.auth.loginError;
+export const selectIsInitialized = (state: RootState) => state.auth.isInitialized;
+
 export default authSlice.reducer;

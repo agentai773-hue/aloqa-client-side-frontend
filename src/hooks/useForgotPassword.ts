@@ -1,43 +1,55 @@
-import { useMutation } from '@tanstack/react-query';
-import { 
-  requestPasswordReset, 
-  resetPasswordWithOTP, 
-  ResetPasswordRequest,
-  ForgotPasswordResponse
-} from '@/api/forgot-password';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
+import { apiMethods } from '@/config/api';
 
-/**
- * Hook to request password reset (send OTP to email)
- */
 export function useRequestPasswordReset() {
-  return useMutation<ForgotPasswordResponse, Error, string>({
-    mutationFn: async (email: string) => {
-      const response = await requestPasswordReset(email);
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to send OTP');
-      }
-      return response;
-    },
-    onError: (error: any) => {
-      console.error('Request password reset error:', error);
+  const [loading, setLoading] = useState(false);
+
+  const requestPasswordReset = async (email: string) => {
+    setLoading(true);
+    try {
+      await apiMethods.post('/client/auth/forgot-password/request', { email });
+      toast.success('Password reset email sent successfully!');
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to send password reset email';
+      toast.error(errorMessage);
+      return { success: false };
+    } finally {
+      setLoading(false);
     }
-  });
+  };
+
+  return {
+    requestPasswordReset,
+    loading
+  };
 }
 
-/**
- * Hook to reset password with OTP
- */
 export function useResetPasswordWithOTP() {
-  return useMutation<ForgotPasswordResponse, Error, ResetPasswordRequest>({
-    mutationFn: async (data: ResetPasswordRequest) => {
-      const response = await resetPasswordWithOTP(data);
-      if (!response.success) {
-        throw new Error(response.message || 'Failed to reset password');
-      }
-      return response;
-    },
-    onError: (error: any) => {
-      console.error('Reset password error:', error);
+  const [loading, setLoading] = useState(false);
+
+  const resetPasswordWithOTP = async (email: string, otp: string, newPassword: string) => {
+    setLoading(true);
+    try {
+      await apiMethods.post('/client/auth/forgot-password/reset', { 
+        email, 
+        otp, 
+        newPassword 
+      });
+      toast.success('Password reset successfully!');
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Failed to reset password';
+      toast.error(errorMessage);
+      return { success: false };
+    } finally {
+      setLoading(false);
     }
-  });
+  };
+
+  return {
+    resetPasswordWithOTP,
+    loading
+  };
 }

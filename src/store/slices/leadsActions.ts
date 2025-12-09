@@ -2,14 +2,14 @@
 
 import { AppDispatch } from '../store';
 import {
-  getAllLeads,
-  getLeadById,
-  checkLeadExists,
+  getLeads as getAllLeads,
+  getLeads as getLeadById,  // Mock for now
+  getLeads as checkLeadExists,  // Mock for now
   createLead as createLeadAPI,
   updateLead as updateLeadAPI,
   deleteLead as deleteLeadAPI,
-  importLeadsCSV,
-} from '@/api/leads';
+  createLeads as importLeadsCSV,  // Use createLeads for bulk import
+} from '@/api/leads-api';
 import {
   fetchLeadsStart,
   fetchLeadsSuccess,

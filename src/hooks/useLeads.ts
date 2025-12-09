@@ -1,111 +1,109 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  getAllLeads,
-  getLeadById,
-  createLead,
-  updateLead,
-  deleteLead,
-  checkLeadExists,
-  importLeads,
-  Lead,
-  CreateLeadRequest,
-  UpdateLeadRequest,
-} from '@/api/leads-api';
+import { leadsAPI } from '../api/leads';
+import type { Lead } from '../api/leads';
 
 const LEADS_QUERY_KEY = ['leads'];
 
-// Hook to fetch all leads for current user
-export function useLeads() {
+export function useLeads(params?: {
+  page?: number;
+  limit?: number;
+  search?: string;
+  status?: string;
+  leadType?: string;
+}) {
   return useQuery({
-    queryKey: LEADS_QUERY_KEY,
-    queryFn: getAllLeads,
-    select: (data) => data.data || [],
+    queryKey: [...LEADS_QUERY_KEY, params],
+    queryFn: async () => {
+      const response = await leadsAPI.getAll(params);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to fetch leads');
+      }
+      return response.data;
+    },
   });
 }
 
-// Hook to fetch single lead by ID
-export function useLead(id: string | null) {
-  return useQuery({
-    queryKey: ['lead', id],
-    queryFn: () => getLeadById(id!),
-    enabled: !!id,
-    select: (data) => data.data,
-  });
-}
-
-// Hook to check if lead exists
-export function useCheckLeadExists(contactNumber: string | null) {
-  return useQuery({
-    queryKey: ['checkLead', contactNumber],
-    queryFn: () => checkLeadExists(contactNumber!),
-    enabled: !!contactNumber,
-    select: (data) => data.exists,
-  });
-}
-
-// Hook to create lead
 export function useCreateLead() {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
-    mutationFn: (leadData: CreateLeadRequest) => createLead(leadData),
-    onSuccess: (data) => {
-      // Invalidate and refetch leads
-      queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
-    },
-    onError: (error: any) => {
-      // Extract proper error message from API response
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
+    mutationFn: async (leadData: Lead) => {
+      const response = await leadsAPI.create(leadData);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to create lead');
       }
-      throw error;
+      return response.data?.leads[0];
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
     },
   });
 }
 
-// Hook to update lead
+export function useLead(id: string) {
+  return useQuery({
+    queryKey: [...LEADS_QUERY_KEY, id],
+    queryFn: async () => {
+      const response = await leadsAPI.getById(id);
+      if (!response.success) {
+        throw new Error(response.message || 'Lead not found');
+      }
+      return response.data;
+    },
+    enabled: !!id,
+  });
+}
+
 export function useUpdateLead() {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: UpdateLeadRequest }) =>
-      updateLead(id, data),
-    onSuccess: () => {
-      // Invalidate and refetch leads
-      queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
-    },
-    onError: (error: any) => {
-      // Extract proper error message from API response
-      if (error.response?.data?.error) {
-        throw new Error(error.response.data.error);
+    mutationFn: async (data: Partial<Lead> & { _id: string }) => {
+      const response = await leadsAPI.update(data._id, data);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to update lead');
       }
-      throw error;
+      return response.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
     },
   });
 }
 
-// Hook to delete lead
 export function useDeleteLead() {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
-    mutationFn: (id: string) => deleteLead(id),
+    mutationFn: async (id: string) => {
+      const response = await leadsAPI.delete(id);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to delete lead');
+      }
+      return response;
+    },
     onSuccess: () => {
-      // Invalidate and refetch leads
       queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
     },
   });
 }
 
-// Hook to import leads
 export function useImportLeads() {
   const queryClient = useQueryClient();
-
+  
   return useMutation({
-    mutationFn: (leadsData: CreateLeadRequest[]) => importLeads(leadsData),
+    mutationFn: async (leads: Lead[]) => {
+      const response = await leadsAPI.createBulk(leads);
+      if (!response.success) {
+        throw new Error(response.message || 'Failed to import leads');
+      }
+      return response.data?.leads || [];
+    },
     onSuccess: () => {
-      // Invalidate and refetch leads
       queryClient.invalidateQueries({ queryKey: LEADS_QUERY_KEY });
     },
   });
 }
+
+export type { Lead };
+export default useLeads;
