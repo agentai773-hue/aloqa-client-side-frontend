@@ -1,0 +1,35 @@
+# Dependencies
+node_modules
+
+# Development files
+.env.local
+.env.development
+
+# Build artifacts
+.next/cache
+.next/trace
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+ARCHITECTURE.md
+PROJECT_INTEGRATION_COMPLETE.md
+SKELETON_SYSTEM_COMPLETE.md
+
+# TypeScript
+*.tsbuildinfo
