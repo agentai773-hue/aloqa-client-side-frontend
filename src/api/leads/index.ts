@@ -39,7 +39,7 @@ api.interceptors.response.use(
 // Leads specific endpoints
 const LEADS_ENDPOINTS = {
   GET_ALL: '/leads',
-  CREATE: '/leads',
+  CREATE: '/leads/create',
   BULK_CREATE: '/leads/bulk',
   GET_BY_ID: '/leads',
   UPDATE: '/leads',
@@ -130,13 +130,29 @@ export const leadsAPI = {
         message: 'Lead created successfully',
         data: {
           created: 1,
+          skipped: 0,
           leads: [response.data.lead]
         }
       };
     } catch (error) {
-      const errorMessage = error instanceof AxiosError 
-        ? error.response?.data?.message || error.message
-        : 'Failed to create lead';
+      console.error('API Error creating lead:', error);
+      
+      let errorMessage = 'Failed to create lead';
+      
+      if (error instanceof AxiosError && error.response?.data) {
+        const backendError = error.response.data;
+        
+        // Check for different error field formats
+        if (backendError.error) {
+          errorMessage = backendError.error;
+        } else if (backendError.message) {
+          errorMessage = backendError.message;
+        } else if (backendError.errors && Array.isArray(backendError.errors)) {
+          errorMessage = backendError.errors.map((err: { msg?: string; message?: string }) => err.msg || err.message).join(', ');
+        }
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
         
       return {
         success: false,
@@ -147,16 +163,12 @@ export const leadsAPI = {
 
   createBulk: async (leads: Lead[]): Promise<CreateLeadResponse> => {
     try {
-      const response = await api.post<{ created: number; leads: Lead[] }>(
+      const response = await api.post<CreateLeadResponse>(
         LEADS_ENDPOINTS.BULK_CREATE,
         { leads }
       );
 
-      return {
-        success: true,
-        message: 'Leads created successfully',
-        data: response.data
-      };
+      return response.data;
     } catch (error) {
       const errorMessage = error instanceof AxiosError 
         ? error.response?.data?.message || error.message

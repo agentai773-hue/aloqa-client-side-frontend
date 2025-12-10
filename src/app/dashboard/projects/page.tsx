@@ -37,13 +37,6 @@ const Projects = () => {
   // Use useProjects hook with pagination parameters
   const { data: projectsResponse, isLoading: loading, error } = useProjects(apiParams);
 
-  // Debug: Log the response to see pagination data
-  if (projectsResponse) {
-    console.log('Projects Response:', projectsResponse);
-    console.log('Projects count:', projectsResponse.projects?.length);
-    console.log('Total from backend:', projectsResponse.total);
-    console.log('Pages from backend:', projectsResponse.totalPages);
-  }
 
   // Extract data from API response - same pattern as leads
   const projects = projectsResponse?.projects || [];

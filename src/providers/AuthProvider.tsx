@@ -21,23 +21,17 @@ const AuthInitializer: React.FC<{ children: ReactNode }> = ({ children }) => {
     // Verify token on app startup
     const initializeAuth = async () => {
       try {
-        if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-          console.log('🔐 Initializing authentication...');
-        }
+     
         
         // Check if we have a token in localStorage
         const token = typeof window !== 'undefined' ? 
           localStorage.getItem(APP_CONFIG.AUTH.TOKEN_STORAGE_KEY) : null;
         
         if (token) {
-          if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-            console.log('🔑 Found stored token, verifying...');
-          }
+       
           await verify();
         } else {
-          if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-            console.log('🔑 No stored token found - marking as initialized');
-          }
+       
           // No token found, just mark as initialized (user is not authenticated)
           initialize();
         }
@@ -55,12 +49,7 @@ const AuthInitializer: React.FC<{ children: ReactNode }> = ({ children }) => {
     }
   }, [verify, initialize, isInitialized]);
 
-  // Log auth state changes in development
-  useEffect(() => {
-    if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS && isInitialized) {
-      console.log('🔐 Auth state updated:', { isAuthenticated, isInitialized });
-    }
-  }, [isAuthenticated, isInitialized]);
+
 
   return <>{children}</>;
 };

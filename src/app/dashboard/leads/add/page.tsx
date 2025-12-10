@@ -9,6 +9,7 @@ import { leadsAPI } from '../../../../api/leads';
 import { CreateLeadResponse } from '../../../../api/leads/types';
 import { projectsAPI } from '../../../../api/projects';
 import CreateLeadModal from '../../../../components/leads/CreateLeadModal';
+import UploadResultsModal from '../../../../components/leads/UploadResultsModal';
 
 // Local interface for project data that might have either field name
 interface ProjectResponse {
@@ -85,6 +86,7 @@ export default function AddLeadPage() {
   const [previewLeads, setPreviewLeads] = useState<LeadPreview[]>([]);
   const [removedLeads, setRemovedLeads] = useState<{ phone: string; project: string; reason: string }[]>([]);
   const [submitResults, setSubmitResults] = useState<CreateLeadResponse | null>(null);
+  const [showResultsModal, setShowResultsModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -93,7 +95,6 @@ export default function AddLeadPage() {
     const fetchProjects = async () => {
       try {
         const response = await projectsAPI.getAll();
-        console.log('Projects API Response:', response); // Debug log
         
         if (response.success && response.data && response.data.projects && response.data.projects.length > 0) {
           const projects = response.data.projects;
@@ -107,7 +108,6 @@ export default function AddLeadPage() {
             };
           });
           setProjects(apiProjects);
-          console.log('✅ Projects loaded successfully (Add Page):', apiProjects.length, 'projects');
         } else {
           console.warn('No projects data found in response:', response);
           setProjects([]);
@@ -196,7 +196,6 @@ export default function AddLeadPage() {
         return;
       }
 
-      console.log(`📊 Processing ${dataRows.length} rows from CSV`);
 
       const parsedLeads: LeadPreview[] = [];
 
@@ -240,10 +239,7 @@ export default function AddLeadPage() {
             fullLead.interestedProject = projectMatch.name;
             fullLead.projectId = projectMatch.id;
             fullLead.matchedProject = projectMatch;
-            console.log(`✅ Project matched: "${leadData.interestedProject}" → "${projectMatch.name}" (ID: ${projectMatch.id})`);
-          } else {
-            console.log(`⚠️ No project match found for: "${fullLead.interestedProject}"`);
-          }
+          } 
         }
 
         // Generate User ID (would come from auth context)
@@ -288,7 +284,6 @@ export default function AddLeadPage() {
           reason: `Duplicate phone number within project "${lead.interestedProject || 'Unknown Project'}"`
         };
         removedLeadsList.push(removedLead);
-        console.log(`⚠️ Duplicate phone-project combination skipped: ${lead.phone} for project ${lead.interestedProject}`);
         return;
       }
 
@@ -601,32 +596,16 @@ export default function AddLeadPage() {
                   setIsSubmitting(true);
                   const response = await leadsAPI.createBulk(previewLeads);
                   
-                  // Store submit results for potential display
+                  // Store submit results for modal display
                   setSubmitResults(response);
                   
-                  // Use detailed validation information from backend
-                  if (response.validation?.summary) {
-                    const summary = response.validation.summary;
-                    let message = `${summary.successfullySaved} leads saved successfully!`;
-                    
-                    if (summary.databaseDuplicatesSkipped > 0) {
-                      message += ` ${summary.databaseDuplicatesSkipped} leads were skipped (already exist in database with same phone numbers in same projects).`;
-                    }
-                    
-                    if (summary.successfullySaved > 0) {
-                      toast.success(message);
-                    } else {
-                      toast.error(`No leads were saved. ${summary.databaseDuplicatesSkipped} leads already exist in database with same phone numbers in same projects.`);
-                    }
-                  } else {
-                    const created = response.data?.created || 0;
-                    toast.success(`Successfully created ${created} leads!`);
-                  }
+                  // Show results modal instead of immediate redirect
+                  setShowResultsModal(true);
                   
+                  // Clear the preview leads since they've been processed
                   setPreviewLeads([]);
                   setUploadedFiles([]);
                   setRemovedLeads([]);
-                  router.push('/dashboard/leads');
                 } catch (error) {
                   console.error('Error submitting leads:', error);
                   toast.error('Failed to create leads. Please try again.');
@@ -653,10 +632,21 @@ export default function AddLeadPage() {
         </motion.div>
       )}
 
+      {/* Results Modal */}
+      <UploadResultsModal 
+        isOpen={showResultsModal}
+        onClose={() => {
+          setShowResultsModal(false);
+          setSubmitResults(null);
+        }}
+        results={submitResults}
+      />
+
       {/* Lead Creation Modal */}
       <CreateLeadModal 
         isOpen={isModalOpen} 
         onClose={() => setIsModalOpen(false)}
+        projects={projects}
         onSuccess={() => {
           // Refresh the leads list or navigate
           router.push('/dashboard/leads');

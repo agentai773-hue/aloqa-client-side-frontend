@@ -188,9 +188,7 @@ export const validateEnvironment = (): void => {
 export const apiMethods = {
   get: async <T>(url: string): Promise<ApiResponse<T>> => {
     try {
-      if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-        console.log('🚀 GET:', API_BASE_URL + url);
-      }
+     
       
       const response = await fetch(API_BASE_URL + url, {
         method: 'GET',
@@ -204,9 +202,7 @@ export const apiMethods = {
       }
 
       const data = await response.json();
-      if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-        console.log('✅ GET Response:', data);
-      }
+   
       return data;
     } catch (error) {
       console.error('❌ GET Error:', error);
@@ -219,9 +215,7 @@ export const apiMethods = {
 
   post: async <T>(url: string, data?: unknown): Promise<ApiResponse<T>> => {
     try {
-      if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-        console.log('🚀 POST:', API_BASE_URL + url, data);
-      }
+    
       
       const response = await fetch(API_BASE_URL + url, {
         method: 'POST',
@@ -234,9 +228,7 @@ export const apiMethods = {
         let errorMessage = `HTTP ${response.status}`;
         try {
           const errorData = await response.json();
-          if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-            console.log('❌ Error Response:', errorData);
-          }
+        
           // Check if backend sends structured error response
           if (errorData.message) {
             errorMessage = errorData.message;
@@ -260,9 +252,7 @@ export const apiMethods = {
       }
 
       const result = await response.json();
-      if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-        console.log('✅ POST Response:', result);
-      }
+    
       return result;
     } catch (error) {
       console.error('❌ POST Error:', error);
