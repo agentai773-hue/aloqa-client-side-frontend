@@ -2,10 +2,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Upload, X, FileText, Save, Download, Plus } from 'lucide-react';
+import { Upload, X, FileText, Save, Download, Plus, AlertTriangle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { leadsAPI } from '../../../../api/leads';
+import { CreateLeadResponse } from '../../../../api/leads/types';
 import { projectsAPI } from '../../../../api/projects';
 import CreateLeadModal from '../../../../components/leads/CreateLeadModal';
 
@@ -26,7 +27,6 @@ interface LeadFormData {
   interestedProject: string;
   leadType: 'fake' | 'cold' | 'hot';
   notes: string;
-  status: 'new' | 'old';
 }
 
 interface UploadedFile {
@@ -83,6 +83,8 @@ export default function AddLeadPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [previewLeads, setPreviewLeads] = useState<LeadPreview[]>([]);
+  const [removedLeads, setRemovedLeads] = useState<{ phone: string; project: string; reason: string }[]>([]);
+  const [submitResults, setSubmitResults] = useState<CreateLeadResponse | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -223,8 +225,6 @@ export default function AddLeadPage() {
           leadType: (['fake', 'cold', 'hot'].includes(leadData.lead_type?.toLowerCase()) 
             ? leadData.lead_type.toLowerCase() : 'cold') as 'fake' | 'cold' | 'hot',
           notes: leadData.notes || leadData.comments || leadData.description || '',
-          status: (['new', 'old'].includes(leadData.status?.toLowerCase()) 
-            ? leadData.status.toLowerCase() : 'old') as 'new' | 'old',
         };
 
         // Skip empty or invalid leads
@@ -252,43 +252,52 @@ export default function AddLeadPage() {
         parsedLeads.push(fullLead);
       });
 
-      // Remove duplicates by phone number, keep only one per project
+      // Remove duplicates by phone number within the same project only
       const deduplicatedLeads = removeDuplicates(parsedLeads);
       
       setPreviewLeads(deduplicatedLeads);
-      toast.success(`Processed ${dataRows.length} leads, ${deduplicatedLeads.length} unique leads after deduplication`);
+      
+      // Show validation summary
+      const removedCount = parsedLeads.length - deduplicatedLeads.length;
+      if (removedCount > 0) {
+        toast.success(`Processed ${dataRows.length} leads, ${deduplicatedLeads.length} unique leads saved. ${removedCount} duplicate(s) removed within same projects.`);
+      } else {
+        toast.success(`Processed ${dataRows.length} leads, ${deduplicatedLeads.length} unique leads after validation`);
+      }
     } catch (error) {
       console.error('Error processing file:', error);
       toast.error('Error processing file content');
     }
   };
 
-  // Deduplication function
+  // Deduplication function - only remove duplicates within same project
   const removeDuplicates = (leads: LeadPreview[]): LeadPreview[] => {
     const uniqueLeads: LeadPreview[] = [];
-    const seenPhones = new Set<string>();
     const projectPhonePairs = new Set<string>();
+    const removedLeadsList: { phone: string; project: string; reason: string }[] = [];
 
     leads.forEach(lead => {
       const phoneKey = lead.phone.replace(/[^0-9]/g, ''); // Remove non-numeric characters
       const projectPhoneKey = `${lead.projectId || 'no-project'}_${phoneKey}`;
 
-      // Skip if we've seen this phone number before
-      if (seenPhones.has(phoneKey)) {
-        console.log(`⚠️ Duplicate phone number skipped: ${lead.phone}`);
-        return;
-      }
-
-      // Skip if we've seen this phone-project combination before
+      // Only skip if we've seen this phone-project combination before (same project)
       if (projectPhonePairs.has(projectPhoneKey)) {
+        const removedLead = {
+          phone: lead.phone,
+          project: lead.interestedProject || 'Unknown Project',
+          reason: `Duplicate phone number within project "${lead.interestedProject || 'Unknown Project'}"`
+        };
+        removedLeadsList.push(removedLead);
         console.log(`⚠️ Duplicate phone-project combination skipped: ${lead.phone} for project ${lead.interestedProject}`);
         return;
       }
 
-      seenPhones.add(phoneKey);
       projectPhonePairs.add(projectPhoneKey);
       uniqueLeads.push(lead);
     });
+
+    // Update the removed leads state
+    setRemovedLeads(removedLeadsList);
 
     return uniqueLeads;
   };
@@ -344,7 +353,7 @@ export default function AddLeadPage() {
           <h3 className="font-medium text-green-700 mb-2">📋 Expected File Format</h3>
           <p className="text-sm text-gray-700 mb-2">Your CSV file should contain these columns:</p>
           <div className="text-xs text-green-700 font-mono bg-green-100 p-2 rounded">
-            Name, Phone, Email, Location, Project, Lead Type, Status, Notes
+            Name, Phone, Email, Location, Project, Lead Type, Notes
           </div>
           <p className="text-xs text-gray-600 mt-2">
             💡 Projects will be automatically matched with existing ones in the system
@@ -415,6 +424,79 @@ export default function AddLeadPage() {
         </div>
       </motion.div>
 
+      {/* Validation Summary Section */}
+      {removedLeads.length > 0 && (
+        <motion.div
+          className="bg-yellow-50 p-4 rounded-xl shadow-lg border border-yellow-200"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="w-5 h-5 text-yellow-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-medium text-yellow-800 mb-2">
+                Validation Summary - {removedLeads.length} Duplicate(s) Removed
+              </h3>
+              <p className="text-sm text-yellow-700 mb-3">
+                The following leads were removed because they had duplicate phone numbers within the same project:
+              </p>
+              <div className="max-h-40 overflow-y-auto space-y-2">
+                {removedLeads.map((removed, index) => (
+                  <div key={index} className="text-xs bg-yellow-100 p-2 rounded border border-yellow-200">
+                    <span className="font-medium">Phone: {removed.phone}</span>
+                    <span className="text-yellow-600 ml-2">• Project: {removed.project}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-yellow-600 mt-2">
+                💡 Note: Same phone numbers are allowed across different projects
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Database Validation Results - Show after submission */}
+      {submitResults?.validation?.databaseDuplicateDetails && submitResults.validation.databaseDuplicateDetails.length > 0 && (
+        <motion.div
+          className="bg-red-50 p-4 rounded-xl shadow-lg border border-red-200"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <div className="flex items-start space-x-3">
+            <AlertTriangle className="w-5 h-5 text-red-600 mt-0.5 shrink-0" />
+            <div className="flex-1">
+              <h3 className="font-medium text-red-800 mb-2">
+                Database Duplicates Found - {submitResults.validation.databaseDuplicatesSkipped} Leads Already Exist
+              </h3>
+              <p className="text-sm text-red-700 mb-3">
+                The following leads were not saved because they already exist in the database with the same phone numbers in the same projects:
+              </p>
+              <div className="max-h-40 overflow-y-auto space-y-2">
+                {submitResults.validation.databaseDuplicateDetails.map((duplicate, index) => (
+                  <div key={index} className="text-xs bg-red-100 p-2 rounded border border-red-200">
+                    <span className="font-medium">Name: {duplicate.name}</span>
+                    <span className="text-red-600 ml-2">• Phone: {duplicate.phone}</span>
+                    <span className="text-red-600 ml-2">• Project: {duplicate.project}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-red-600 mt-2">
+                💡 These leads already exist in your database. Please check existing leads or use different projects if needed.
+              </p>
+              <button 
+                onClick={() => setSubmitResults(null)}
+                className="mt-2 text-xs text-red-600 hover:text-red-800 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {/* Preview Section */}
       {previewLeads.length > 0 && (
         <motion.div
@@ -456,7 +538,6 @@ export default function AddLeadPage() {
                   <th className="px-3 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Email</th>
                   <th className="px-3 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Project</th>
                   <th className="px-3 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Lead Type</th>
-                  <th className="px-3 py-3 text-left text-xs font-bold text-gray-800 uppercase tracking-wider">Status</th>
                   <th className="px-3 py-3 text-center text-xs font-bold text-gray-800 uppercase tracking-wider">Action</th>
                 </tr>
               </thead>
@@ -492,14 +573,6 @@ export default function AddLeadPage() {
                         {lead.leadType}
                       </span>
                     </td>
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
-                        lead.status === 'new' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        {lead.status}
-                      </span>
-                    </td>
                     <td className="px-3 py-3 whitespace-nowrap text-center">
                       <button
                         type="button"
@@ -526,10 +599,33 @@ export default function AddLeadPage() {
               onClick={async () => {
                 try {
                   setIsSubmitting(true);
-                  await leadsAPI.createBulk(previewLeads);
-                  toast.success(`Successfully created ${previewLeads.length} leads!`);
+                  const response = await leadsAPI.createBulk(previewLeads);
+                  
+                  // Store submit results for potential display
+                  setSubmitResults(response);
+                  
+                  // Use detailed validation information from backend
+                  if (response.validation?.summary) {
+                    const summary = response.validation.summary;
+                    let message = `${summary.successfullySaved} leads saved successfully!`;
+                    
+                    if (summary.databaseDuplicatesSkipped > 0) {
+                      message += ` ${summary.databaseDuplicatesSkipped} leads were skipped (already exist in database with same phone numbers in same projects).`;
+                    }
+                    
+                    if (summary.successfullySaved > 0) {
+                      toast.success(message);
+                    } else {
+                      toast.error(`No leads were saved. ${summary.databaseDuplicatesSkipped} leads already exist in database with same phone numbers in same projects.`);
+                    }
+                  } else {
+                    const created = response.data?.created || 0;
+                    toast.success(`Successfully created ${created} leads!`);
+                  }
+                  
                   setPreviewLeads([]);
                   setUploadedFiles([]);
+                  setRemovedLeads([]);
                   router.push('/dashboard/leads');
                 } catch (error) {
                   console.error('Error submitting leads:', error);

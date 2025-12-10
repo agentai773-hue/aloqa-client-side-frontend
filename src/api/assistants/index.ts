@@ -16,6 +16,3 @@ export const assistantsAPI = {
     return apiMethods.get<Assistant[]>('/assistants');
   },
 };
-
-// Export types
-export type { Assistant };

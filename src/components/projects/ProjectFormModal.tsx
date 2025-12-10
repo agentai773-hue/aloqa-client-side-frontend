@@ -26,14 +26,14 @@ const ProjectFormModal = ({
 }: ProjectFormModalProps) => {
   const [formData, setFormData] = useState<{
     projectName: string;
-    projectStatus: 'planning' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled';
+    projectStatus: 'planning' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled' | 'testing' | 'draft';
     phoneNumberId?: string;
-    assistantId?: string;
+    assistantId: string; // Made mandatory
   }>({
     projectName: '',
-    projectStatus: 'planning',
+    projectStatus: 'draft', // Changed default to draft
     phoneNumberId: '',
-    assistantId: ''
+    assistantId: '' // Required field
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -68,7 +68,7 @@ const ProjectFormModal = ({
         } else {
           setFormData({
             projectName: '',
-            projectStatus: 'planning',
+            projectStatus: 'draft', // Changed from 'planning' to match default
             phoneNumberId: '',
             assistantId: ''
           });
@@ -95,6 +95,10 @@ const ProjectFormModal = ({
       newErrors.phoneNumberId = 'Phone number is required';
     }
 
+    if (!formData.assistantId) {
+      newErrors.assistantId = 'Assistant is required';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -106,16 +110,19 @@ const ProjectFormModal = ({
       return;
     }
 
+    // Find selected assistant and phone number to get their names
+    const selectedAssistant = assistantOptions.find(option => option.value === formData.assistantId);
+    const selectedPhoneNumber = phoneNumberOptions.find(option => option.value === formData.phoneNumberId);
+
     const submitData: CreateProjectData | UpdateProjectData = {
       projectName: formData.projectName.trim(),
       projectStatus: formData.projectStatus,
-      phoneNumberId: formData.phoneNumberId
+      phoneNumberId: formData.phoneNumberId, // Now mandatory again
+      assistantId: formData.assistantId, // Mandatory
+      // Include the names for better data consistency
+      assistantName: selectedAssistant ? selectedAssistant.label : undefined,
+      phoneNumber: selectedPhoneNumber ? selectedPhoneNumber.phone : undefined
     };
-
-    // Add assistant if selected
-    if (formData.assistantId) {
-      submitData.assistantId = formData.assistantId;
-    }
 
     onSubmit(submitData);
   };
@@ -207,8 +214,10 @@ const ProjectFormModal = ({
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors hover:border-gray-400"
                   disabled={isLoading}
                 >
+                  <option value="draft">Draft</option>
                   <option value="planning">Planning</option>
                   <option value="in-progress">In Progress</option>
+                  <option value="testing">Testing</option>
                   <option value="on-hold">On Hold</option>
                   <option value="completed">Completed</option>
                   <option value="cancelled">Cancelled</option>
@@ -252,22 +261,29 @@ const ProjectFormModal = ({
               {/* Assistant */}
               <div>
                 <label htmlFor="assistantId" className="block text-sm font-medium text-gray-700 mb-1">
-                  Assistant
+                  Assistant <span className="text-red-500">*</span>
                 </label>
                 <select
                   id="assistantId"
                   value={formData.assistantId || ''}
                   onChange={(e) => handleChange('assistantId', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors hover:border-gray-400"
+                  className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors ${
+                    errors.assistantId 
+                      ? 'border-red-300 bg-red-50' 
+                      : 'border-gray-300 hover:border-gray-400'
+                  }`}
                   disabled={isLoading || assistantsLoading}
                 >
-                  <option value="">Select an assistant (optional)</option>
+                  <option value="">Select an assistant</option>
                   {assistantOptions.map((option) => (
                     <option key={option.value} value={option.value}>
                       {option.label}
                     </option>
                   ))}
                 </select>
+                {errors.assistantId && (
+                  <p className="mt-1 text-sm text-red-600">{errors.assistantId}</p>
+                )}
                 {assistantsLoading && (
                   <p className="mt-1 text-sm text-gray-500">Loading assistants...</p>
                 )}

@@ -18,7 +18,6 @@ export const EditLeadForm: React.FC<EditLeadFormProps> = ({ lead }) => {
     phone: lead.phone || '',
     email: lead.email || '',
     leadType: lead.leadType || 'cold',
-    status: lead.status || 'new',
     interestedProject: lead.interestedProject || '',
     location: lead.location || '',
     notes: lead.notes || '',
@@ -168,26 +167,6 @@ export const EditLeadForm: React.FC<EditLeadFormProps> = ({ lead }) => {
             <option value="warm">Warm</option>
             <option value="cold">Cold</option>
             <option value="fake">Fake</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-            Status
-          </label>
-          <select
-            id="status"
-            name="status"
-            value={formData.status}
-            onChange={handleChange}
-            className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="new">New</option>
-            <option value="old">Old</option>
-            <option value="contacted">Contacted</option>
-            <option value="qualified">Qualified</option>
-            <option value="converted">Converted</option>
-            <option value="lost">Lost</option>
           </select>
         </div>
 

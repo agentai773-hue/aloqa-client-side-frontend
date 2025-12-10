@@ -1,4 +1,5 @@
-import { apiMethods, ApiError } from '../../config/api';
+import axios, { AxiosError } from 'axios';
+import { APP_CONFIG, getAuthToken } from '../../config/api';
 import type { 
   Lead, 
   CreateLeadResponse, 
@@ -7,6 +8,34 @@ import type {
   DeleteLeadResponse 
 } from './types';
 
+// Create axios instance
+const api = axios.create({
+  baseURL: APP_CONFIG.API.BASE_URL + APP_CONFIG.API.CLIENT_PREFIX,
+  timeout: APP_CONFIG.API.TIMEOUT,
+  headers: APP_CONFIG.API.HEADERS,
+});
+
+// Request interceptor to add auth token
+api.interceptors.request.use((config) => {
+  const token = getAuthToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+// Response interceptor for error handling
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      // Handle unauthorized - could redirect to login
+      console.error('Unauthorized access - token may be expired');
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Leads specific endpoints
 const LEADS_ENDPOINTS = {
   GET_ALL: '/leads',
@@ -14,7 +43,7 @@ const LEADS_ENDPOINTS = {
   BULK_CREATE: '/leads/bulk',
   GET_BY_ID: '/leads',
   UPDATE: '/leads',
-  DELETE: '/leads',
+  DELETE: '/leads/delete', // Updated to use /delete endpoint
   STATS: '/leads/stats',
 };
 
@@ -41,25 +70,46 @@ export const leadsAPI = {
 
       const url = `${LEADS_ENDPOINTS.GET_ALL}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
       
-      console.log('🔍 Leads API call with params:', params);
-      console.log('🔍 Leads API URL:', url);
-      
-      const response = await apiMethods.get<{ leads: Lead[]; total: number; page: number; limit: number; totalPages: number }>(url);
+      const response = await api.get<{
+        success: boolean;
+        message: string;
+        data: {
+          leads: Lead[];
+          total: number;
+          page: number;
+          limit: number;
+          totalPages: number;
+        }
+      }>(url);
 
-      console.log('🔍 Leads API response:', response);
-
-      return {
-        success: true,
-        message: response.message || 'Leads fetched successfully',
-        data: response.data
-      };
+      // Backend already returns success/data structure, so we need to handle it properly
+      if (response.data.success) {
+        return {
+          success: true,
+          message: response.data.message || 'Leads fetched successfully',
+          data: response.data.data // Extract the actual data from backend response
+        };
+      } else {
+        return {
+          success: false,
+          message: response.data.message || 'Failed to fetch leads',
+          data: {
+            leads: [],
+            total: 0,
+            page: 1,
+            limit: 10,
+            totalPages: 0
+          }
+        };
+      }
     } catch (error) {
-      const apiError = error as ApiError;
-      console.error('❌ Get leads error:', apiError);
+      const errorMessage = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message
+        : 'Failed to fetch leads';
       
       return {
         success: false,
-        message: apiError.message || 'Failed to fetch leads',
+        message: errorMessage,
         data: {
           leads: [],
           total: 0,
@@ -73,92 +123,107 @@ export const leadsAPI = {
 
   create: async (leadData: Lead): Promise<CreateLeadResponse> => {
     try {
-      const response = await apiMethods.post<{ lead: Lead }>(LEADS_ENDPOINTS.CREATE, leadData);
+      const response = await api.post<{ lead: Lead }>(LEADS_ENDPOINTS.CREATE, leadData);
 
       return {
         success: true,
-        message: response.message || 'Lead created successfully',
+        message: 'Lead created successfully',
         data: {
           created: 1,
           leads: [response.data.lead]
         }
       };
     } catch (error) {
-      const apiError = error as ApiError;
+      const errorMessage = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message
+        : 'Failed to create lead';
+        
       return {
         success: false,
-        message: apiError.message || 'Failed to create lead'
+        message: errorMessage
       };
     }
   },
 
   createBulk: async (leads: Lead[]): Promise<CreateLeadResponse> => {
     try {
-      const response = await apiMethods.post<{ created: number; leads: Lead[] }>(
+      const response = await api.post<{ created: number; leads: Lead[] }>(
         LEADS_ENDPOINTS.BULK_CREATE,
         { leads }
       );
 
       return {
         success: true,
-        message: response.message || 'Leads created successfully',
+        message: 'Leads created successfully',
         data: response.data
       };
     } catch (error) {
-      const apiError = error as ApiError;
+      const errorMessage = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message
+        : 'Failed to create leads';
+        
       return {
         success: false,
-        message: apiError.message || 'Failed to create leads'
+        message: errorMessage
       };
     }
   },
 
   getById: async (id: string): Promise<{ success: boolean; message: string; data?: Lead }> => {
     try {
-      const response = await apiMethods.get<Lead>(`${LEADS_ENDPOINTS.GET_BY_ID}/${id}`);
+      const response = await api.get<Lead>(`${LEADS_ENDPOINTS.GET_BY_ID}/${id}`);
       return {
         success: true,
-        message: response.message || 'Lead fetched successfully',
+        message: 'Lead fetched successfully',
         data: response.data
       };
     } catch (error) {
-      const apiError = error as ApiError;
+      const errorMessage = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message
+        : 'Lead not found';
+        
       return {
         success: false,
-        message: apiError.message || 'Lead not found'
+        message: errorMessage
       };
     }
   },
 
   update: async (id: string, data: Partial<Lead>): Promise<UpdateLeadResponse> => {
     try {
-      const response = await apiMethods.put<Lead>(`${LEADS_ENDPOINTS.UPDATE}/${id}`, data);
+      const response = await api.put<Lead>(`${LEADS_ENDPOINTS.UPDATE}/${id}`, data);
       return {
         success: true,
-        message: response.message || 'Lead updated successfully',
+        message: 'Lead updated successfully',
         data: response.data
       };
     } catch (error) {
-      const apiError = error as ApiError;
+      const errorMessage = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message
+        : 'Failed to update lead';
+        
       return {
         success: false,
-        message: apiError.message || 'Failed to update lead'
+        message: errorMessage
       };
     }
   },
 
   delete: async (id: string): Promise<DeleteLeadResponse> => {
     try {
-      const response = await apiMethods.delete<{ message: string }>(`${LEADS_ENDPOINTS.DELETE}/${id}`);
+      const response = await api.delete<{ message: string }>(`${LEADS_ENDPOINTS.DELETE}/${id}`);
       return {
         success: true,
-        message: response.message || 'Lead deleted successfully'
+        message: response.data.message || 'Lead deleted successfully'
       };
     } catch (error) {
-      const apiError = error as ApiError;
+      const errorMessage = error instanceof AxiosError 
+        ? error.response?.data?.message || error.message
+        : 'Failed to delete lead';
+        
       return {
         success: false,
-        message: apiError.message || 'Failed to delete lead'
+        message: errorMessage
       };
     }
   },

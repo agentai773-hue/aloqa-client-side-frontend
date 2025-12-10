@@ -30,7 +30,12 @@ interface LeadFormData {
   interestedProject: string;
   leadType: 'fake' | 'cold' | 'hot';
   notes: string;
-  status: 'new' | 'old';
+  // Call-related fields
+  call_status: 'pending' | 'initiating' | 'ringing' | 'in_progress' | 'completed' | 'no_answer' | 'failed' | 'voicemail' | 'busy' | 'cancelled';
+  call_attempt_count: number;
+  max_retry_attempts: number;
+  call_disposition?: 'interested' | 'not_interested' | 'site_visit_scheduled' | 'callback_requested' | 'wrong_number' | 'language_barrier' | 'voicemail' | 'no_answer';
+  next_scheduled_call_time?: string;
 }
 
 interface Project {
@@ -51,7 +56,12 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
     interestedProject: '',
     leadType: 'cold',
     notes: '',
-    status: 'new'
+    // Call-related field defaults
+    call_status: 'pending',
+    call_attempt_count: 0,
+    max_retry_attempts: 3,
+    call_disposition: undefined,
+    next_scheduled_call_time: undefined
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -64,7 +74,6 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
       setLoadingProjects(true);
       try {
         const response = await projectsAPI.getAll();
-        console.log('Projects API Response (Modal):', response); // Debug log
         
         if (response.success && response.data && response.data.projects && response.data.projects.length > 0) {
           const projects = response.data.projects;
@@ -78,9 +87,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
             };
           });
           setProjects(apiProjects);
-          console.log('✅ Projects loaded successfully in modal:', apiProjects.length, 'projects');
         } else {
-          console.warn('No projects data found in modal response:', response);
           setProjects([]);
         }
       } catch (error: unknown) {
@@ -105,6 +112,33 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    
+    // Handle number inputs
+    if (name === 'call_attempt_count' || name === 'max_retry_attempts') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: parseInt(value) || 0
+      }));
+      return;
+    }
+    
+    // Handle optional string fields that can be undefined
+    if (name === 'call_disposition' && value === '') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+      return;
+    }
+    
+    if (name === 'next_scheduled_call_time' && value === '') {
+      setFormData(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+      return;
+    }
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -141,7 +175,12 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
           interestedProject: '',
           leadType: 'cold',
           notes: '',
-          status: 'old'
+          // Reset call-related fields
+          call_status: 'pending',
+          call_attempt_count: 0,
+          max_retry_attempts: 3,
+          call_disposition: undefined,
+          next_scheduled_call_time: undefined
         });
         onSuccess?.();
         onClose();
@@ -343,21 +382,101 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
                       </select>
                       <div className={`mt-1 h-2 rounded-full bg-linear-to-r ${getLeadTypeColor(formData.leadType)}`}></div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Call Information */}
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                    <Phone className="w-5 h-5 text-blue-600 mr-2" />
+                    Call Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Status
+                        Call Status
                       </label>
                       <select
-                        name="status"
-                        value={formData.status}
+                        name="call_status"
+                        value={formData.call_status}
                         onChange={handleInputChange}
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                        disabled
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        <option value="new">New</option>
-                        <option value="old">Old</option>
+                        <option value="pending">Pending</option>
+                        <option value="initiating">Initiating</option>
+                        <option value="ringing">Ringing</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="no_answer">No Answer</option>
+                        <option value="failed">Failed</option>
+                        <option value="voicemail">Voicemail</option>
+                        <option value="busy">Busy</option>
+                        <option value="cancelled">Cancelled</option>
                       </select>
-                      <p className="text-xs text-gray-500 mt-1">Status defaults to &ldquo;New&rdquo; for manual entries</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Attempt Count
+                      </label>
+                      <input
+                        type="number"
+                        name="call_attempt_count"
+                        value={formData.call_attempt_count}
+                        onChange={handleInputChange}
+                        min="0"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="0"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Max Retry Attempts
+                      </label>
+                      <input
+                        type="number"
+                        name="max_retry_attempts"
+                        value={formData.max_retry_attempts}
+                        onChange={handleInputChange}
+                        min="1"
+                        max="10"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="3"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Call Disposition
+                      </label>
+                      <select
+                        name="call_disposition"
+                        value={formData.call_disposition || ''}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Select disposition (optional)</option>
+                        <option value="interested">Interested</option>
+                        <option value="not_interested">Not Interested</option>
+                        <option value="site_visit_scheduled">Site Visit Scheduled</option>
+                        <option value="callback_requested">Callback Requested</option>
+                        <option value="wrong_number">Wrong Number</option>
+                        <option value="language_barrier">Language Barrier</option>
+                        <option value="voicemail">Voicemail</option>
+                        <option value="no_answer">No Answer</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Next Scheduled Call
+                      </label>
+                      <input
+                        type="datetime-local"
+                        name="next_scheduled_call_time"
+                        value={formData.next_scheduled_call_time || ''}
+                        onChange={handleInputChange}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
                     </div>
                   </div>
                 </div>

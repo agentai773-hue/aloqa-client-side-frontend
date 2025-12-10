@@ -57,8 +57,7 @@ export const ImportLeadsCSV: React.FC = () => {
             location: row.location || '',
             interestedProject: row.interestedProject || row.project || '',
             leadType: (row.leadType as Lead['leadType']) || 'cold',
-            notes: row.notes || '',
-            status: (row.status as Lead['status']) || 'new'
+            notes: row.notes || ''
           }));
 
           setImportProgress({ total: data.length, processed: 0 });
@@ -170,7 +169,7 @@ export const ImportLeadsCSV: React.FC = () => {
         <ul className="text-sm text-gray-600 space-y-1">
           <li>• Must be a .csv file</li>
           <li>• Required columns: fullName, email</li>
-          <li>• Optional columns: phone, location, leadType, status, interestedProject, notes</li>
+          <li>• Optional columns: phone, location, leadType, interestedProject, notes</li>
           <li>• First row should contain column headers</li>
         </ul>
       </div>

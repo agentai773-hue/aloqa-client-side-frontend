@@ -4,17 +4,15 @@ import type { Project, CreateProjectData, UpdateProjectData } from '../types/pro
 
 const PROJECTS_QUERY_KEY = ['projects'];
 
-export function useProjects() {
+export function useProjects(params?: { page?: number; limit?: number; search?: string; status?: string }) {
   return useQuery({
-    queryKey: PROJECTS_QUERY_KEY,
+    queryKey: [...PROJECTS_QUERY_KEY, params],
     queryFn: async () => {
-      const response = await projectsAPI.getAll();
+      const response = await projectsAPI.getAll(params);
       if (!response.success) {
         throw new Error(response.message || 'Failed to fetch projects');
       }
-      const projects = response.data?.projects || [];
-      console.log('🔍 Final projects from useProjects hook:', projects);
-      return projects;
+      return response.data;
     },
   });
 }
@@ -27,7 +25,14 @@ export function useCreateProject() {
       // Transform the project data to match API expectations
       const apiData = {
         projectName: projectData.projectName,
-        projectStatus: projectData.projectStatus || 'planning'
+        projectStatus: projectData.projectStatus || 'draft',
+        phoneNumberId: projectData.phoneNumberId,
+        phoneNumber: projectData.phoneNumber,
+        assistantId: projectData.assistantId,
+        assistantName: projectData.assistantName,
+        projectDescription: projectData.projectDescription,
+        projectType: projectData.projectType,
+        priority: projectData.priority
       };
       
       const response = await projectsAPI.create(apiData);

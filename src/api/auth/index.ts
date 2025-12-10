@@ -50,9 +50,6 @@ export const authAPI = {
       if (response.success && response.data?.token) {
         if (typeof window !== 'undefined') {
           localStorage.setItem(APP_CONFIG.AUTH.TOKEN_STORAGE_KEY, response.data.token);
-          if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-            console.log('✅ Auth token saved to localStorage');
-          }
         }
       }
       
@@ -97,20 +94,13 @@ export const authAPI = {
       // Clear token from localStorage regardless of API response
       if (typeof window !== 'undefined') {
         localStorage.removeItem(APP_CONFIG.AUTH.TOKEN_STORAGE_KEY);
-        if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-          console.log('✅ Auth token cleared from localStorage');
-        }
       }
       
       return response.data || response;
-    } catch (error: unknown) {
+    } catch {
       // Even if API fails, clear local data
       if (typeof window !== 'undefined') {
         localStorage.removeItem(APP_CONFIG.AUTH.TOKEN_STORAGE_KEY);
-      }
-      
-      if (APP_CONFIG.FEATURES.ENABLE_DEBUG_LOGS) {
-        console.error('❌ Logout API error (clearing locally):', error);
       }
       
       // Return success because we cleared local data

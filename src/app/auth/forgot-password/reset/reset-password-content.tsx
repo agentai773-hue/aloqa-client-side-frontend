@@ -21,7 +21,7 @@ function ResetPasswordForm({ email }: { email: string }) {
   }>({});
   const [passwordReset, setPasswordReset] = useState(false);
 
-  const { mutate: resetPassword, isPending, isError, error } = useResetPasswordWithOTP();
+  const { resetPasswordWithOTP, loading } = useResetPasswordWithOTP();
 
   useEffect(() => {
     if (!email) {
@@ -54,29 +54,20 @@ function ResetPasswordForm({ email }: { email: string }) {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!validateForm()) {
       return;
     }
 
-    resetPassword(
-      {
-        email,
-        otp,
-        newPassword,
-        confirmPassword
-      },
-      {
-        onSuccess: () => {
-          setPasswordReset(true);
-          setTimeout(() => {
-            router.push("/auth/login");
-          }, 2500);
-        }
-      }
-    );
+    const result = await resetPasswordWithOTP(email, otp, newPassword);
+    if (result.success) {
+      setPasswordReset(true);
+      setTimeout(() => {
+        router.push("/auth/login");
+      }, 2500);
+    }
   };
 
   return (
@@ -114,16 +105,6 @@ function ResetPasswordForm({ email }: { email: string }) {
             </div>
           )}
 
-          {/* Error Message */}
-          {isError && error && (
-            <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">
-                {error instanceof Error ? error.message : "An error occurred"}
-              </p>
-            </div>
-          )}
-
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* OTP Input */}
@@ -147,7 +128,7 @@ function ResetPasswordForm({ email }: { email: string }) {
                     ? "border-red-500 bg-red-50 focus:border-red-600"
                     : "border-gray-200 bg-gray-50 focus:border-[#34DB17] focus:bg-white"
                 }`}
-                disabled={isPending || passwordReset}
+                disabled={loading || passwordReset}
               />
               {errors.otp && (
                 <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -177,13 +158,13 @@ function ResetPasswordForm({ email }: { email: string }) {
                       ? "border-red-500 bg-red-50 focus:border-red-600"
                       : "border-gray-200 bg-gray-50 focus:border-[#34DB17] focus:bg-white"
                   }`}
-                  disabled={isPending || passwordReset}
+                  disabled={loading || passwordReset}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  disabled={isPending || passwordReset}
+                  disabled={loading || passwordReset}
                 >
                   {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -216,13 +197,13 @@ function ResetPasswordForm({ email }: { email: string }) {
                       ? "border-red-500 bg-red-50 focus:border-red-600"
                       : "border-gray-200 bg-gray-50 focus:border-[#34DB17] focus:bg-white"
                   }`}
-                  disabled={isPending || passwordReset}
+                  disabled={loading || passwordReset}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                   className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                  disabled={isPending || passwordReset}
+                  disabled={loading || passwordReset}
                 >
                   {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                 </button>
@@ -238,10 +219,10 @@ function ResetPasswordForm({ email }: { email: string }) {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isPending || passwordReset}
+              disabled={loading || passwordReset}
               className="w-full py-3 px-4 bg-linear-to-r from-[#34DB17] to-[#306B25] text-white font-semibold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-6"
             >
-              {isPending ? (
+              {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Resetting Password...
@@ -276,7 +257,7 @@ function ResetPasswordForm({ email }: { email: string }) {
           {/* Info Text */}
           <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <p className="text-xs text-amber-800">
-              <strong>OTP expires in 10 minutes.</strong> If you don't see the email, check your spam folder.
+              <strong>OTP expires in 10 minutes.</strong> If you don&apos;t see the email, check your spam folder.
             </p>
           </div>
         </div>

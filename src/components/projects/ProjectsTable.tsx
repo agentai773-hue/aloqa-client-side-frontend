@@ -12,6 +12,7 @@ import {
   Pause,
   XCircle
 } from 'lucide-react';
+import Pagination from '../ui/Pagination';
 import type { Project } from '../../types/project';
 
 interface ProjectsTableProps {
@@ -20,6 +21,13 @@ interface ProjectsTableProps {
   onEdit: (project: Project) => void;
   onDelete: (project: Project) => void;
   onView: (project: Project) => void;
+  // Pagination props - same as leads
+  currentPage: number;
+  totalPages: number;
+  totalItems: number;
+  itemsPerPage: number;
+  onPageChange: (page: number) => void;
+  onItemsPerPageChange?: (itemsPerPage: number) => void;
 }
 
 const ProjectsTable = ({ 
@@ -27,7 +35,13 @@ const ProjectsTable = ({
   isLoading, 
   onEdit, 
   onDelete, 
-  onView 
+  onView,
+  currentPage,
+  totalPages,
+  totalItems,
+  itemsPerPage,
+  onPageChange,
+  onItemsPerPageChange
 }: ProjectsTableProps) => {
 
   const getStatusBadge = (status: string) => {
@@ -245,14 +259,12 @@ const ProjectsTable = ({
                     
                     {/* Phone Number */}
                     <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500 border-r border-green-100">
-                      {typeof project.phoneNumberId === 'object' && project.phoneNumberId ? (
+                      {project.phoneNumber || (typeof project.phoneNumberId === 'object' && project.phoneNumberId?.phoneNumber) ? (
                         <div className="flex flex-col items-center">
                           <span className="font-medium text-gray-900">
-                            {project.phoneNumberId.phoneNumber}
+                            {project.phoneNumber || (typeof project.phoneNumberId === 'object' && project.phoneNumberId?.phoneNumber)}
                           </span>
-                          <span className="text-xs text-gray-500">
-                            {project.phoneNumberId.country}
-                          </span>
+                       
                         </div>
                       ) : (
                         <span className="text-gray-400 italic">No phone number</span>
@@ -261,14 +273,16 @@ const ProjectsTable = ({
                     
                     {/* Assistant */}
                     <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-gray-500 border-r border-green-100">
-                      {typeof project.assistantId === 'object' && project.assistantId ? (
+                      {project.assistantName || (typeof project.assistantId === 'object' && project.assistantId?.agentName) ? (
                         <div className="flex flex-col items-center">
                           <span className="font-medium text-gray-900">
-                            {project.assistantId.agentName}
+                            {project.assistantName || (typeof project.assistantId === 'object' && project.assistantId?.agentName)}
                           </span>
-                          <span className="text-xs text-gray-500 capitalize">
-                            {project.assistantId.agentType.replace('_', ' ')}
-                          </span>
+                          {typeof project.assistantId === 'object' && project.assistantId?.agentType && (
+                            <span className="text-xs text-gray-500 capitalize">
+                              {project.assistantId.agentType.replace('_', ' ')}
+                            </span>
+                          )}
                         </div>
                       ) : (
                         <span className="text-gray-400 italic">No assistant</span>
@@ -315,6 +329,20 @@ const ProjectsTable = ({
             </AnimatePresence>
           </tbody>
         </table>
+      </div>
+
+      {/* Pagination - Table के नीचे */}
+      <div className="bg-gray-50 px-4 py-3 border-t border-gray-200">
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={itemsPerPage}
+          onPageChange={onPageChange}
+          onItemsPerPageChange={onItemsPerPageChange}
+          loading={isLoading}
+          showItemsPerPage={true}
+        />
       </div>
     </div>
   );

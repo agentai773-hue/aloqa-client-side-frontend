@@ -17,6 +17,3 @@ export const phoneNumbersAPI = {
     return apiMethods.get<PhoneNumber[]>('/phone-numbers');
   },
 };
-
-// Export types
-export type { PhoneNumber };

@@ -22,7 +22,8 @@ export const PhoneNumberDropdown: React.FC<PhoneNumberDropdownProps> = ({
   className = "",
   showCountryFlag = true,
 }) => {
-  const { phoneNumberOptions, isLoading, error, hasPhoneNumbers } = usePhoneNumberOptions();
+  const { options: phoneNumberOptions, isLoading, error, phoneNumbers } = usePhoneNumberOptions();
+  const hasPhoneNumbers = phoneNumbers && phoneNumbers.length > 0;
 
   const selectedOption = phoneNumberOptions.find(option => option.value === value);
 
@@ -71,7 +72,7 @@ export const PhoneNumberDropdown: React.FC<PhoneNumberDropdownProps> = ({
           const selectedId = e.target.value;
           const selectedPhone = phoneNumberOptions.find(opt => opt.value === selectedId);
           if (selectedPhone) {
-            onChange(selectedId, selectedPhone.phoneNumber);
+            onChange(selectedId, selectedPhone.phone);
           }
         }}
         disabled={disabled}
@@ -89,8 +90,7 @@ export const PhoneNumberDropdown: React.FC<PhoneNumberDropdownProps> = ({
         {phoneNumberOptions.map((option) => (
           <option key={option.value} value={option.value}>
             {showCountryFlag && `${getCountryFlag(option.country)} `}
-            {option.phoneNumber} ({option.country})
-            {option.status !== 'assigned' && ` - ${option.status}`}
+            {option.phone} ({option.country})
           </option>
         ))}
       </select>
@@ -107,11 +107,8 @@ export const PhoneNumberDropdown: React.FC<PhoneNumberDropdownProps> = ({
             <Phone className="w-3 h-3" />
             <span>
               {showCountryFlag && `${getCountryFlag(selectedOption.country)} `}
-              {selectedOption.phoneNumber}
+              {selectedOption.phone}
             </span>
-            {selectedOption.agentId && (
-              <span className="text-[#306B25]">• Agent assigned</span>
-            )}
           </div>
         </div>
       )}

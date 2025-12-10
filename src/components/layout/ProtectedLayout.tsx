@@ -199,9 +199,6 @@ function LayoutContent({ children }: { children: React.ReactNode }) {
                   isActive = pathname === section.href;
                 }
 
-                // Debug active state
-                console.log(`🎯 Section: ${section.name}, href: ${section.href}, pathname: ${pathname}, isActive: ${isActive}, hasActiveChild: ${hasActiveChild}`);
-
                 return (
                   <SidebarSection
                     key={section.id}

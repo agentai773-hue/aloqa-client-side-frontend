@@ -35,7 +35,7 @@ export const APP_CONFIG = {
   // Feature Flags
   FEATURES: {
     ENABLE_ANALYTICS: process.env.NEXT_PUBLIC_ENABLE_ANALYTICS === 'true',
-    ENABLE_DEBUG_LOGS: process.env.NODE_ENV === 'development',
+    ENABLE_DEBUG_LOGS: false, // Disabled console logging
     ENABLE_OFFLINE_SUPPORT: false,
     ENABLE_REAL_TIME_UPDATES: true,
   },

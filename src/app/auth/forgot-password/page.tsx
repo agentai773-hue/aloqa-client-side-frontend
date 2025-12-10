@@ -12,7 +12,7 @@ export default function ForgotPasswordPage() {
   const [errors, setErrors] = useState<{ email?: string }>({});
   const [otpSent, setOtpSent] = useState(false);
   
-  const { mutate: requestReset, isPending, isError, error } = useRequestPasswordReset();
+  const { requestPasswordReset, loading } = useRequestPasswordReset();
 
   const validateEmail = (emailValue: string) => {
     const newErrors: { email?: string } = {};
@@ -27,21 +27,20 @@ export default function ForgotPasswordPage() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateEmail(email)) {
       return;
     }
 
-    requestReset(email, {
-      onSuccess: (data) => {
-        setOtpSent(true);
-        setTimeout(() => {
-          router.push(`/auth/forgot-password/reset?email=${encodeURIComponent(email)}`);
-        }, 2000);
-      }
-    });
+    const result = await requestPasswordReset(email);
+    if (result.success) {
+      setOtpSent(true);
+      setTimeout(() => {
+        router.push(`/auth/forgot-password/reset?email=${encodeURIComponent(email)}`);
+      }, 2000);
+    }
   };
 
   return (
@@ -56,7 +55,7 @@ export default function ForgotPasswordPage() {
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Forgot Password?</h1>
             <p className="text-gray-600">
-              No worries! Enter your email address and we'll send you an OTP to reset your password.
+              No worries! Enter your email address and we&apos;ll send you an OTP to reset your password.
             </p>
           </div>
 
@@ -66,16 +65,6 @@ export default function ForgotPasswordPage() {
               <CheckCircle className="w-5 h-5 text-green-600 shrink-0" />
               <p className="text-sm text-green-800">
                 OTP sent successfully! Redirecting...
-              </p>
-            </div>
-          )}
-
-          {/* Error Message */}
-          {isError && error && (
-            <div className="mb-6 flex items-start gap-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <p className="text-sm text-red-800">
-                {error instanceof Error ? error.message : 'An error occurred'}
               </p>
             </div>
           )}
@@ -104,7 +93,7 @@ export default function ForgotPasswordPage() {
                     ? "border-red-500 bg-red-50 focus:border-red-600"
                     : "border-gray-200 bg-gray-50 focus:border-[#34DB17] focus:bg-white"
                 }`}
-                disabled={isPending || otpSent}
+                disabled={loading || otpSent}
               />
               {errors.email && (
                 <p className="mt-2 text-sm text-red-600 flex items-center gap-1">
@@ -117,10 +106,10 @@ export default function ForgotPasswordPage() {
             {/* Submit Button */}
             <button
               type="submit"
-              disabled={isPending || otpSent}
-              className="w-full py-3 px-4 bg-gradient-to-r from-[#34DB17] to-[#306B25] text-white font-semibold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              disabled={loading || otpSent}
+              className="w-full py-3 px-4 bg-linear-to-r from-[#34DB17] to-[#306B25] text-white font-semibold rounded-lg hover:shadow-lg transform hover:scale-105 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              {isPending ? (
+              {loading ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Sending OTP...
@@ -174,7 +163,7 @@ export default function ForgotPasswordPage() {
           {/* Help Text */}
           <div className="mt-8 pt-6 border-t border-gray-200">
             <p className="text-xs text-gray-500 text-center">
-              We'll send an OTP to your email. Check your inbox and spam folder.
+              We&apos;ll send an OTP to your email. Check your inbox and spam folder.
             </p>
           </div>
         </div>

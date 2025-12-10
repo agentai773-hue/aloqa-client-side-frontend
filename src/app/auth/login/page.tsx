@@ -49,15 +49,12 @@ function LoginPageContent() {
       
       // Check if login was successful using Redux Toolkit action result
       if (result.type.endsWith('/fulfilled')) {
-        console.log("✅ Login successful");
         setFormData({ email: "", password: "" }); // Clear form on success
         // Redirect will happen automatically via useEffect
       } else {
-        console.error("❌ Login failed:", result.payload || 'Unknown error');
         // Error will be displayed automatically via loginError state
       }
-    } catch (error) {
-      console.error("❌ Login error:", error);
+    } catch {
     }
   };
 

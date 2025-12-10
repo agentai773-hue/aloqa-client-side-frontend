@@ -1,5 +1,5 @@
 import { useQuery, UseQueryResult } from '@tanstack/react-query';
-import { Lead, leadsAPI } from '../api/leads';
+import { Lead, leadsAPI } from '@/api/leads';
 
 export interface SearchLeadsParams {
   searchTerm: string;
@@ -79,3 +79,5 @@ export const useSearchLeads = (
     refetchOnWindowFocus: false,
   });
 };
+
+export default useSearchLeads;

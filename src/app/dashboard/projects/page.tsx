@@ -1,60 +1,78 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plus, Search, Filter, AlertTriangle } from 'lucide-react';
 import ProjectsTable from '../../../components/projects/ProjectsTable';
 import ProjectFormModal from '../../../components/projects/ProjectFormModal';
 import DeleteConfirmModal from '../../../components/projects/DeleteConfirmModal';
 import { useProjects, useCreateProject, useUpdateProject, useDeleteProject } from '@/hooks/useProjectQueries';
+import { useDebounce } from '../../../hooks/useDebounce';
 import type { Project, CreateProjectData, UpdateProjectData } from '../../../types/project';
 import toast from 'react-hot-toast';
 
 const Projects = () => {
-  const { data: projects = [], isLoading, error } = useProjects();
-  const createProjectMutation = useCreateProject();
-  const updateProjectMutation = useUpdateProject();
-  const deleteProjectMutation = useDeleteProject();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(7); // Same as leads page
 
+  // Modal state  
   const [formOpen, setFormOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'planning' | 'in-progress' | 'on-hold' | 'completed' | 'cancelled'>('all');
 
-  const filteredProjects = useMemo(() => {
-    let filtered = projects;
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter((project: Project) => project.projectName?.toLowerCase()?.includes(query) || false);
+  // Debounce search term for better performance
+  const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+  // Prepare API parameters for server-side filtering and pagination
+  const apiParams = {
+    page,
+    limit,
+    search: debouncedSearchTerm || undefined,
+    status: filterStatus !== 'all' ? filterStatus : undefined,
+  };
+
+  // Use useProjects hook with pagination parameters
+  const { data: projectsResponse, isLoading: loading, error } = useProjects(apiParams);
+
+  // Debug: Log the response to see pagination data
+  if (projectsResponse) {
+    console.log('Projects Response:', projectsResponse);
+    console.log('Projects count:', projectsResponse.projects?.length);
+    console.log('Total from backend:', projectsResponse.total);
+    console.log('Pages from backend:', projectsResponse.totalPages);
+  }
+
+  // Extract data from API response - same pattern as leads
+  const projects = projectsResponse?.projects || [];
+  const pagination = {
+    total: projectsResponse?.total || 0,
+    page: projectsResponse?.page || 1,
+    limit: projectsResponse?.limit || 7,
+    totalPages: projectsResponse?.totalPages || 0
+  };
+
+  // Create/Update/Delete mutations
+  const createProjectMutation = useCreateProject();
+  const updateProjectMutation = useUpdateProject();
+  const deleteProjectMutation = useDeleteProject();
+
+  // Handle search and filter changes
+  const handleSearchChange = (value: string) => {
+    setSearchTerm(value);
+    if (value !== searchTerm) {
+      setPage(1);
     }
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter((project: Project) => project.projectStatus === statusFilter);
-    }
-    return filtered;
-  }, [projects, searchQuery, statusFilter]);
-
-  const handleCreateProject = () => {
-    setSelectedProject(null);
-    setFormOpen(true);
   };
 
-  const handleEditProject = (project: Project) => {
-    setSelectedProject(project);
-    setFormOpen(true);
+  const handleStatusFilterChange = (value: string) => {
+    setFilterStatus(value);
+    setPage(1);
   };
 
-  const handleViewProject = (project: Project) => {
-    console.log('View project:', project);
-    toast.success(`Viewing project: ${project.projectName || 'Untitled Project'}`);
-  };
-
-  const handleDeleteProject = (project: Project) => {
-    setProjectToDelete(project);
-    setDeleteConfirmOpen(true);
-  };
-
+  // Handle form submission (create/update)
   const handleFormSubmit = async (data: CreateProjectData | UpdateProjectData) => {
     try {
       if (selectedProject) {
@@ -97,58 +115,68 @@ const Projects = () => {
   };
 
   return (
-    <div className="space-y-6 p-6">
-    
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Project List</h1>
+          <p className="text-gray-600">Manage and track your projects</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setSelectedProject(null);
+              setFormOpen(true);
+            }}
+            className="inline-flex items-center px-4 py-2 bg-linear-to-r from-green-500 to-emerald-600 text-white rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all duration-200 shadow-md hover:shadow-lg"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Add Project
+          </button>
+        </div>
+      </div>
 
-      <div className="bg-white rounded-lg shadow-sm border-grey-600 p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1">
+      {/* Filters */}
+      <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+        <div className="flex flex-col lg:flex-row gap-4 items-stretch lg:items-center">
+          {/* Search */}
+          <div className="flex-1 min-w-0">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search projects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors outline-none"
+                placeholder="Search projects by name..."
+                value={searchTerm}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
               />
             </div>
           </div>
-          <div className="sm:w-48">
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors appearance-none bg-white outline-none"
-              >
-                <option value="all">All Status</option>
-                <option value="planning">Planning</option>
-                <option value="in-progress">In Progress</option>
-                <option value="on-hold">On Hold</option>
-                <option value="completed">Completed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="px-4 py-2 bg-green-100 text-green-800 rounded-lg font-semibold text-sm">
-              {filteredProjects.length} projects
-            </div>
-         
-            <motion.button
-              onClick={handleCreateProject}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-linear-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
+
+          {/* Filters */}
+          <div className="flex gap-3">
+            <select
+              value={filterStatus}
+              onChange={(e) => handleStatusFilterChange(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5DD149] focus:border-transparent"
             >
-              <Plus className="w-4 h-4 mr-2" />
-              New Project
-            </motion.button>
+              <option value="all">All Status</option>
+              <option value="planning">Planning</option>
+              <option value="in-progress">In Progress</option>
+              <option value="on-hold">On Hold</option>
+              <option value="completed">Completed</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+
+            <button className="flex items-center px-3 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+              <Filter className="w-4 h-4 mr-1" />
+              More
+            </button>
           </div>
         </div>
       </div>
 
+      {/* Error Display */}
       <AnimatePresence>
         {error && (
           <motion.div 
@@ -156,43 +184,87 @@ const Projects = () => {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
           >
-            <div className="flex items-start">
-              <div className="shrink-0">
-                <AlertTriangle className="h-5 w-5 text-red-500" />
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">Error loading projects</h3>
-                <p className="mt-1 text-sm text-red-700">{error.message || 'Failed to load projects. Please try again.'}</p>
-              </div>
+            <div className="flex items-center">
+              <AlertTriangle className="w-5 h-5 text-red-500 mr-2" />
+              <p className="text-red-700 font-medium">
+                {error?.message || 'An error occurred while fetching projects'}
+              </p>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <ProjectsTable
-          projects={filteredProjects}
-          isLoading={isLoading}
-          onEdit={handleEditProject}
-          onDelete={handleDeleteProject}
-          onView={handleViewProject}
-        />
-      </motion.div>
+      {/* Projects Table - Using Component */}
+      <ProjectsTable
+        projects={projects}
+        isLoading={loading}
+        onEdit={(project) => {
+          setSelectedProject(project);
+          setFormOpen(true);
+        }}
+        onDelete={(project) => {
+          setProjectToDelete(project);
+          setDeleteConfirmOpen(true);
+        }}
+        onView={(project) => {
+          toast.success(`Viewing project: ${project.projectName}`);
+        }}
+        currentPage={pagination.page}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.total}
+        itemsPerPage={limit}
+        onPageChange={setPage}
+        onItemsPerPageChange={(newLimit: number) => {
+          setLimit(newLimit);
+          setPage(1);
+        }}
+      />
 
+      {/* Summary */}
+      {projects.length > 0 && (
+        <div className="bg-white p-4 rounded-lg shadow-md border border-gray-200">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+            <div>
+              <div className="text-2xl font-bold text-gray-900">{pagination.total}</div>
+              <div className="text-sm text-gray-500">Total Projects</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-blue-600">
+                {projects.filter((p: Project) => p.projectStatus === 'in-progress').length}
+              </div>
+              <div className="text-sm text-gray-500">In Progress</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-green-600">
+                {projects.filter((p: Project) => p.projectStatus === 'completed').length}
+              </div>
+              <div className="text-sm text-gray-500">Completed</div>
+            </div>
+            <div>
+              <div className="text-2xl font-bold text-yellow-600">
+                {projects.filter((p: Project) => p.projectStatus === 'planning').length}
+              </div>
+              <div className="text-sm text-gray-500">Planning</div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Form Modal */}
       <ProjectFormModal
         isOpen={formOpen}
+        mode={selectedProject ? 'edit' : 'create'}
         onClose={() => {
           setFormOpen(false);
           setSelectedProject(null);
         }}
         onSubmit={handleFormSubmit}
         project={selectedProject}
-        mode={selectedProject ? 'edit' : 'create'}
         isLoading={createProjectMutation.isPending || updateProjectMutation.isPending}
       />
 
+      {/* Delete Confirmation Modal */}
       <DeleteConfirmModal
         isOpen={deleteConfirmOpen}
         onClose={() => {
