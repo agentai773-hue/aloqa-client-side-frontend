@@ -6,7 +6,22 @@ import { AppLoadingProvider } from "@/providers/AppLoadingProvider";
 
 export const metadata: Metadata = {
   title: "Aloqa AI - Client Calling Portal",
-  description: "Client calling portal for real estate",
+  description: "Client calling portal",
+  icons: {
+    icon: [
+      {
+        url: "/inner-logo.svg",
+        type: "image/svg+xml",
+      },
+    ],
+    shortcut: "/inner-logo.svg",
+    apple: [
+      {
+        url: "/inner-logo.svg",
+        type: "image/svg+xml",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({
