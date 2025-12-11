@@ -229,8 +229,18 @@ export const validateEnvironment = (): void => {
 export const apiMethods = {
   get: async <T>(url: string, requireAuth: boolean = true): Promise<ApiResponse<T>> => {
     try {
-      // Don't double-process the URL - API_BASE_URL is already absolute
-      const finalURL = API_BASE_URL + url;
+      // Ensure we always use absolute URL to prevent Next.js routing conflicts
+      let finalURL = API_BASE_URL + url;
+      
+      // Double-check that the URL is absolute - this should prevent Next.js route conflicts
+      if (!finalURL.startsWith('http://') && !finalURL.startsWith('https://')) {
+        console.error('🚨 CRITICAL: API_BASE_URL is not absolute!', { API_BASE_URL, finalURL });
+        // Force absolute URL as fallback
+        finalURL = (process.env.NODE_ENV === 'production' 
+          ? 'https://aloqa-backend-production.up.railway.app/api/client'
+          : 'http://localhost:8080/api/client') + url;
+      }
+      
       const headers = requireAuth ? getAuthHeaders() : getPublicHeaders();
       
       console.log('🌐 GET Request Debug:', {
@@ -238,6 +248,7 @@ export const apiMethods = {
         'url': url,
         'finalURL': finalURL,
         'requireAuth': requireAuth,
+        'is_absolute': finalURL.startsWith('http'),
         'window.location.href': typeof window !== 'undefined' ? window.location.href : 'server'
       });
       
