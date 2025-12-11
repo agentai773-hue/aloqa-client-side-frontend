@@ -3,10 +3,26 @@ import "../app/globals.css";
 import { AuthProvider } from "@/providers/AuthProvider";
 import QueryProvider from "@/components/providers/QueryProvider";
 import { AppLoadingProvider } from "@/providers/AppLoadingProvider";
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata: Metadata = {
   title: "Aloqa AI - Client Calling Portal",
-  description: "Client calling portal",
+  description: "Client calling portal for real estate lead management and AI-powered phone calls",
+  keywords: ["AI", "calling", "real estate", "leads", "management", "automation"],
+  authors: [{ name: "Aloqa AI Team" }],
+  robots: "index, follow",
+  openGraph: {
+    title: "Aloqa AI - Client Calling Portal",
+    description: "AI-powered client calling portal for real estate professionals",
+    type: "website",
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Aloqa AI - Client Calling Portal",
+    description: "AI-powered client calling portal for real estate professionals",
+  },
   icons: {
     icon: [
       {
@@ -39,6 +55,8 @@ export default function RootLayout({
             </QueryProvider>
           </AuthProvider>
         </AppLoadingProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
