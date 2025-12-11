@@ -177,6 +177,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
         // Find project ID
         projectId: projects.find(p => p.name === formData.interestedProject)?.id
       };
+      console.log('Submitting lead data:', leadData);
 
       const response = await leadsAPI.create(leadData);
 
@@ -314,7 +315,7 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
                           : 'border-gray-300 hover:border-gray-400'
                       }`}
                       placeholder="Enter lead name"
-                      required
+                      
                     />
                   </div>
                   {errors.leadName && (
@@ -343,7 +344,6 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
                       placeholder="Enter 10-digit phone number"
                       maxLength={10}
                       pattern="[0-9]{10}"
-                      required
                     />
                   </div>
                   {errors.phone ? (
@@ -371,7 +371,6 @@ const CreateLeadModal: React.FC<CreateLeadModalProps> = ({ isOpen, onClose, onSu
                         ? 'border-red-300 bg-red-50' 
                         : 'border-gray-300 hover:border-gray-400'
                     }`}
-                    required
                   >
                     <option value="">Select a project</option>
                     {projects.map((project) => (

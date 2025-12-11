@@ -89,6 +89,17 @@ export const APP_CONFIG = {
 
 // Convenience exports for backward compatibility
 export const API_BASE_URL = APP_CONFIG.API.BASE_URL + APP_CONFIG.API.CLIENT_PREFIX;
+
+// Debug logging for URL construction (both server and client side)
+console.log('🔧 Client Frontend API Configuration:', {
+  'process.env.NEXT_PUBLIC_API_BASE_URL': process.env.NEXT_PUBLIC_API_BASE_URL,
+  'APP_CONFIG.API.BASE_URL': APP_CONFIG.API.BASE_URL,
+  'APP_CONFIG.API.CLIENT_PREFIX': APP_CONFIG.API.CLIENT_PREFIX,
+  'FINAL API_BASE_URL': API_BASE_URL,
+  'NODE_ENV': process.env.NODE_ENV,
+  'hostname': typeof window !== 'undefined' ? window.location.hostname : 'server'
+});
+
 export const API_ENDPOINTS = {
   // Auth endpoints (corrected to match backend)
   LOGIN: `/auth/login`,
