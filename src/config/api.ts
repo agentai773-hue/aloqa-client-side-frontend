@@ -7,7 +7,10 @@
 export const APP_CONFIG = {
   // API Configuration
   API: {
-    BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080/api',
+    BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 
+             (process.env.NODE_ENV === 'production' 
+               ? 'https://aloqa-backend-production.up.railway.app/api'
+               : 'http://localhost:8080/api'),
     CLIENT_PREFIX: '/client',
     TIMEOUT: 30000, // 30 seconds
     RETRY_ATTEMPTS: 3,
