@@ -44,7 +44,8 @@ export const authAPI = {
    */
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await apiMethods.post<AuthResponse>(API_ENDPOINTS.LOGIN, credentials);
+      // Use requireAuth=false for login requests since user doesn't have token yet
+      const response = await apiMethods.post<AuthResponse>(API_ENDPOINTS.LOGIN, credentials, false);
       
       // Store token in localStorage for persistence if login successful
       if (response.success && response.data?.token) {
@@ -115,7 +116,8 @@ export const authAPI = {
     try {
       const response = await apiMethods.post<{ success: boolean; message: string; email: string }>(
         `${APP_CONFIG.API.CLIENT_PREFIX}/forgot-password/request`, 
-        { email }
+        { email },
+        false  // Password reset doesn't require authentication
       );
       return response.data || response;
     } catch (error: unknown) {
@@ -139,7 +141,8 @@ export const authAPI = {
     try {
       const response = await apiMethods.post<{ success: boolean; message: string }>(
         `${APP_CONFIG.API.CLIENT_PREFIX}/forgot-password/reset`, 
-        data
+        data,
+        false  // Password reset doesn't require authentication
       );
       return response.data || response;
     } catch (error: unknown) {

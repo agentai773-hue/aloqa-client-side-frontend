@@ -4,13 +4,35 @@
 // All configuration settings for the Aloqa AI Client Portal
 
 // Environment Configuration
+const getBaseApiUrl = (): string => {
+  const envUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
+  const fallbackUrl = process.env.NODE_ENV === 'production' 
+    ? 'https://aloqa-backend-production.up.railway.app/api'
+    : 'http://localhost:8080/api';
+
+  if (!envUrl) {
+    return fallbackUrl;
+  }
+
+  // Auto-fix URL format by adding https:// if missing
+  let fixedUrl = envUrl;
+  if (!envUrl.startsWith('http://') && !envUrl.startsWith('https://')) {
+    fixedUrl = 'https://' + envUrl;
+  }
+
+  try {
+    new URL(fixedUrl);
+    return fixedUrl;
+  } catch (error) {
+    console.error('❌ Invalid URL format:', fixedUrl, error);
+    return fallbackUrl;
+  }
+};
+
 export const APP_CONFIG = {
   // API Configuration
   API: {
-    BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 
-             (process.env.NODE_ENV === 'production' 
-               ? 'https://aloqa-backend-production.up.railway.app/api'
-               : 'http://localhost:8080/api'),
+    BASE_URL: getBaseApiUrl(),
     CLIENT_PREFIX: '/client',
     TIMEOUT: 30000, // 30 seconds
     RETRY_ATTEMPTS: 3,
@@ -177,6 +199,11 @@ export const getAuthHeaders = (): Record<string, string> => {
   return headers;
 };
 
+// Get headers without authentication (for login, register, etc.)
+export const getPublicHeaders = (): Record<string, string> => {
+  return { ...APP_CONFIG.API.HEADERS };
+};
+
 // Type-safe environment variable access
 export const getEnvVar = (key: string, defaultValue?: string): string => {
   const value = process.env[key];
@@ -210,21 +237,24 @@ export const validateEnvironment = (): void => {
 // =============================================================================
 
 export const apiMethods = {
-  get: async <T>(url: string): Promise<ApiResponse<T>> => {
+  get: async <T>(url: string, requireAuth: boolean = true): Promise<ApiResponse<T>> => {
     try {
       const absoluteBaseURL = ensureAbsoluteURL(API_BASE_URL);
       const finalURL = absoluteBaseURL + url;
+      const headers = requireAuth ? getAuthHeaders() : getPublicHeaders();
+      
       console.log('🌐 GET Request Debug:', {
         'API_BASE_URL': API_BASE_URL,
         'absoluteBaseURL': absoluteBaseURL,
         'url': url,
         'finalURL': finalURL,
+        'requireAuth': requireAuth,
         'window.location.href': typeof window !== 'undefined' ? window.location.href : 'server'
       });
       
       const response = await fetch(finalURL, {
         method: 'GET',
-        headers: getAuthHeaders(),
+        headers,
         credentials: 'include', // Include cookies
       });
 
@@ -245,22 +275,25 @@ export const apiMethods = {
     }
   },
 
-  post: async <T>(url: string, data?: unknown): Promise<ApiResponse<T>> => {
+  post: async <T>(url: string, data?: unknown, requireAuth: boolean = true): Promise<ApiResponse<T>> => {
     try {
       const absoluteBaseURL = ensureAbsoluteURL(API_BASE_URL);
       const finalURL = absoluteBaseURL + url;
+      const headers = requireAuth ? getAuthHeaders() : getPublicHeaders();
+      
       console.log('🚀 POST Request Debug:', {
         'API_BASE_URL': API_BASE_URL,
         'absoluteBaseURL': absoluteBaseURL,
         'url': url,
         'finalURL': finalURL,
         'data': data,
+        'requireAuth': requireAuth,
         'window.location.href': typeof window !== 'undefined' ? window.location.href : 'server'
       });
       
       const response = await fetch(finalURL, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers,
         body: data ? JSON.stringify(data) : undefined,
         credentials: 'include', // Include cookies
       });
