@@ -115,22 +115,12 @@ export const APP_CONFIG = {
 // Convenience exports for backward compatibility
 export const API_BASE_URL = APP_CONFIG.API.BASE_URL + APP_CONFIG.API.CLIENT_PREFIX;
 
-// Fix for malformed URLs - ensure absolute URL
-const ensureAbsoluteURL = (url: string): string => {
-  if (url.startsWith('http://') || url.startsWith('https://')) {
-    return url;
-  }
-  // If somehow relative, prepend the protocol
-  return 'https://' + url;
-};
-
 // Debug logging for URL construction (both server and client side)
 console.log('🔧 Client Frontend API Configuration:', {
   'process.env.NEXT_PUBLIC_API_BASE_URL': process.env.NEXT_PUBLIC_API_BASE_URL,
   'APP_CONFIG.API.BASE_URL': APP_CONFIG.API.BASE_URL,
   'APP_CONFIG.API.CLIENT_PREFIX': APP_CONFIG.API.CLIENT_PREFIX,
   'FINAL API_BASE_URL': API_BASE_URL,
-  'FINAL API_BASE_URL (absolute)': ensureAbsoluteURL(API_BASE_URL),
   'NODE_ENV': process.env.NODE_ENV,
   'hostname': typeof window !== 'undefined' ? window.location.hostname : 'server'
 });
@@ -239,13 +229,12 @@ export const validateEnvironment = (): void => {
 export const apiMethods = {
   get: async <T>(url: string, requireAuth: boolean = true): Promise<ApiResponse<T>> => {
     try {
-      const absoluteBaseURL = ensureAbsoluteURL(API_BASE_URL);
-      const finalURL = absoluteBaseURL + url;
+      // Don't double-process the URL - API_BASE_URL is already absolute
+      const finalURL = API_BASE_URL + url;
       const headers = requireAuth ? getAuthHeaders() : getPublicHeaders();
       
       console.log('🌐 GET Request Debug:', {
         'API_BASE_URL': API_BASE_URL,
-        'absoluteBaseURL': absoluteBaseURL,
         'url': url,
         'finalURL': finalURL,
         'requireAuth': requireAuth,
@@ -277,13 +266,12 @@ export const apiMethods = {
 
   post: async <T>(url: string, data?: unknown, requireAuth: boolean = true): Promise<ApiResponse<T>> => {
     try {
-      const absoluteBaseURL = ensureAbsoluteURL(API_BASE_URL);
-      const finalURL = absoluteBaseURL + url;
+      // Don't double-process the URL - API_BASE_URL is already absolute
+      const finalURL = API_BASE_URL + url;
       const headers = requireAuth ? getAuthHeaders() : getPublicHeaders();
       
       console.log('🚀 POST Request Debug:', {
         'API_BASE_URL': API_BASE_URL,
-        'absoluteBaseURL': absoluteBaseURL,
         'url': url,
         'finalURL': finalURL,
         'data': data,
@@ -339,8 +327,8 @@ export const apiMethods = {
 
   put: async <T>(url: string, data?: unknown): Promise<ApiResponse<T>> => {
     try {
-      const absoluteBaseURL = ensureAbsoluteURL(API_BASE_URL);
-      const finalURL = absoluteBaseURL + url;
+      // Don't double-process the URL - API_BASE_URL is already absolute
+      const finalURL = API_BASE_URL + url;
       
       const response = await fetch(finalURL, {
         method: 'PUT',
@@ -365,8 +353,8 @@ export const apiMethods = {
 
   delete: async <T>(url: string): Promise<ApiResponse<T>> => {
     try {
-      const absoluteBaseURL = ensureAbsoluteURL(API_BASE_URL);
-      const finalURL = absoluteBaseURL + url;
+      // Don't double-process the URL - API_BASE_URL is already absolute
+      const finalURL = API_BASE_URL + url;
       
       const response = await fetch(finalURL, {
         method: 'DELETE',
